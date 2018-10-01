@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+  <head>
+	<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css">
+  </head>
+  <body>
+	<div id="the-track" style="height:400px;width:600px;border:1px solid black;"> </div>
+     <script src="../src/vendor/zlib_and_gzip.min.js"></script>
+     <script type = "module">
+    	import '../src/vendor/jquery.min.js';
+		import '../src/vendor/jquery-ui.min.js';
+    	import {MLVPanel} from '../src/panel.js';
+	 	//create the main track
+   
+    		let tracks=[
+    			{url:"/molbiol_ox/public/lanceotron/SXOEvwuNVBzBc7PZiuOC1I9w3/100.bw",scale:"fixed",max_y:40,color:"blue",short_label:"ATAC Peaks",discrete:true,height:100,group:"g2",track_id:"blue"},
+    			{url:"/molbiol_ox/public/lanceotron/SXOEvwuNVBzBc7PZiuOC1I9w3/1000.bw",scale:"fixed",max_y:40,color:"red",short_label:"ATAC Peaks 2",discrete:true,height:100,group:"g1",scale_link_to:"blue",track_id:"red"},
+    			{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"},
+    			{url:"/molbiol_ox/public/lanceotron/SXOEvwuNVBzBc7PZiuOC1I9w3/0.5000_1000_100_peak.bb",color:"red",displayMode:"EXPANDED",short_label:"Peaks"},
+    			{url:"/molbiol_ox/public/lanceotron/SXOEvwuNVBzBc7PZiuOC1I9w3/0.5000_1000_100_region.bb",color:"purple",displayMode:"EXPANDED",short_label:"Regions"}
+
+    	];
+
+    let main_panel = new MLVPanel(tracks,{
+		allow_user_drag:true,
+		allow_user_zoom:true,
+		div:"the-track",
+		allow_user_feature_click:true
+    });
+   tracks[2]['displayMode']="EXPANDED";
+   tracks[1]['discrete']=false;
+   tracks[0]['discrete']=false;
+    main_panel.addRulerTrack().addListener("feature_clicked",
+    	function(track,feature){
+    		if (!feature){
+    			return;
+    		}
+    		let config={
+    			allow_user_close:true,
+    			allow_user_zoom:true,
+    			allow_user_drag:true,
+    			allow_user_move:true,
+    			allow_user_resize:true,
+    			height:400,
+    			width:400,
+    		}
+			let panel= new MLVPanel(tracks,config);
+			panel.addRulerTrack();
+			let div = panel.getDiv();
+			div.css({top:"220px",left:"30px",border:"1px solid black"}).appendTo("body");
+			panel.update(feature.chr,feature.start-100,feature.end+100);
+        }
+    );
+     main_panel.addLegend();
+    main_panel.update("chr16",100000,400000);
+
+
+
+ 
+
+
+		</script>
+  	</body>
+</html>

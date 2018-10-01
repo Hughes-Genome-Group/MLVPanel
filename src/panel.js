@@ -1,0 +1,894 @@
+/**
+ * Class representing a lightweight panel the can host multiple tracks of
+ * different types
+ */
+import {MLVTrack,RulerTrack} from "./tracks.js";
+import {Utils} from "./utils.js";
+import {PanelLegend} from "./panel_legend.js";
+
+
+
+class MLVPanel {
+	/**
+	* Creates a panel
+	* @param {array} tracks - a list of config objects describing each track
+	* @param {object} config - A config with the panel settings
+	*/
+	constructor (tracks,config) {
+		if (!config){
+			config={};
+		}
+
+		let height=config.height?config.height:200;
+		let width= config.width?config.width:400;
+		let dim={height:height,width:width};
+		let panel_div=null;
+		if (!config.div){
+			panel_div=$("<div>").height(height).width(width);
+
+		}
+		else{
+			panel_div=$("#"+config.div);
+			height=panel_div.height();
+			width=panel_div.width();
+		}
+		this.tracks={}
+		this.track_order=[];
+		for (let t_config of tracks){
+			let track=MLVTrack.getTrack(t_config);
+			this.tracks[track.config.track_id]=track;
+			this.track_order.push(track.config.track_id)
+		}
+		//check for linked scales
+		this._tracksChanged();
+		this.legend= null;
+
+      
+       	this.trackDiv = panel_div.addClass("igv-track-div").css("position","absolute");
+
+		this.canvas = $('<canvas class = "igv-content-canvas">')[0];
+        this.trackDiv.append(this.canvas);
+        this.canvas.setAttribute('width', width);
+        this.canvas.setAttribute('height', height);
+        this.ctx = this.canvas.getContext("2d");
+
+       
+        this.trackDiv.append(Utils.spinner());
+
+        let icon_div=$("<div>").css({"z-index":100,position:"absolute",top:"2px",right:"2px"}).appendTo(this.trackDiv)
+        					   .attr("class","panel-icon-div")
+
+
+        //for event handlers
+       	this.is_dragging=false;
+       	this.isMouseDown = false,
+      	this.lastMouseX = undefined;
+       	this.mouseDownX = undefined;
+
+		//amount to show each side of view port
+       	this.buffer_level=1;
+
+       	this.groups={};
+
+       	//listeners
+		this.listeners={
+       		"panel_empty":new Map(),
+       		"track_added":new Map(),
+       		"track_removed":new Map(),
+       		"view_changed":new Map(),
+       		"feature_clicked":new Map(),
+       		"feature_over":new Map(),
+       		"range_selected":new Map()
+       	};
+
+       	if (config.allow_user_drag){
+       		this.allowUserDrag();
+       	}
+       	if (config.allow_user_zoom){
+       		this.allowUserZoom();
+       	}
+       	if (config.allow_user_resize){
+       		this.allowUserResize(config.allow_user_resize);
+       	}
+       	if (config.allow_user_move){
+       		this.allowUserMove(config.allow_user_move);
+       	}
+       	if (config.allow_user_feature_click){
+       		this.allowUserFeatureClick();
+       	}
+       	if (config.allow_user_feature_over){
+       		this.allowUserFeatureOver();
+       	}
+       	if (config.allow_user_close){
+       		this.allowUserClose();
+       	}
+       	if (config.allow_user_drop){
+       		this.allowUserDrop();
+       	}
+    }
+
+    /**
+	* sets the extra amount of track to draw each side of the view. A value 
+	* of 1 will retreive 1 x the view width each side i.e. 3 x the visible window
+	* @param {integer} level - The type of listener - track_empty 
+	*/
+    setBufferLevel(level){
+    	this.buffer_level=level;
+    }
+    /**
+	* Returns the element that houses the panel
+	* @returns {integer} level - The type of listener - track_empty 
+	*/
+
+    getDiv(){
+    	return this.trackDiv;
+    }
+    
+    
+    addLegend(){
+    	this.legend = new PanelLegend(this);
+    }
+
+
+
+
+    addRulerTrack(){
+    	let track=new RulerTrack();
+    	let config = track.getConfig();
+		this.tracks[config.track_id]=track;
+		this.track_order.unshift(config.track_id);
+		return this;
+    }
+
+    /**
+	* Adds a listener to the panel
+	* @param {string} type - The type of listener - track_empty
+	* @param {function} func - The function to call 
+	* @param {string} id - The id of the handler (can be used to remove the handler)
+	* Optional - an id will be assigned (and returned) if not supplied
+	* @returns{string} The id of the handler or null if the type did not exist 
+	*/
+    addListener(type,func,id){
+    	let listener = this.listeners[type];
+    	if (!listener){
+    		return null;
+    	}
+    	if (!id){
+    		id = type+"_"+listener.size
+    	}
+    	listener.set(id,func);
+    	return id;
+    }
+
+     /**
+	* Removes a listener to the panel
+	* @param {string} type - The type of listener - track_empty 
+	* @param {string} id - The id of the handler to remove
+	* @returns{boolean} true if the listener was removed, otherwise false 
+	*/
+    removeListener(type,id){
+    	let listener = this.listeners[type];
+    	if (!listener){
+    		return false;
+    	}
+    	return listener.delete(id);
+    }
+    
+    
+    addTrack(config){
+    	let track=MLVTrack.getTrack(config);
+		this.tracks[config.track_id]=track;
+		this.track_order.push(config.track_id);
+		this._tracksChanged();
+		if (this.legend){
+    		this.legend.addTrack(config);
+    	}
+		this._callListeners("track_added",config);
+    }
+    
+    _callListeners(type,config){
+    	  for (let l_id in this.listeners[type]){
+              this.listeners[type][l_id](config);
+          }
+    }
+
+
+    removeTrack(track_id){
+    	this.track_order = this.track_order.filter(e => e !== track_id);
+    	this.repaint(true,true);
+    	if (this.legend){
+    		this.legend.removeTrack(track_id);
+    	}
+    	let config =  this.tracks[track_id].config
+    	delete this.tracks[track_id];
+    	this._callListeners("track_removed",config);
+    	if (this.track_order.length===0){
+            for (let l_id in this.listeners["panel_empty"]){
+                this.listeners["panel_empty"][l_id](this);
+            }
+        }
+
+    }
+    
+    setTrackAttribute(track_id,key,value){
+    	let track = this.tracks[track_id];
+    	track.setConfigAttribute(key,value);
+    	if ((key==="color" || key==="display") && this.legend){
+    		this.legend.updateTrack(track_id);
+    	}
+    }
+    
+    setTrackAttributes(track_id,attributes){
+    	let track = this.tracks[track_id];
+    	for (let key in attributes){
+    		track.setConfigAttribute(key,attributes[key]);
+    		if (key==="color" && this.legend){
+        		this.legend.updateTrack(track_id);
+        	}
+    	}
+    }
+
+    setTrackFeatureFilter(track_id,func){
+    	let track = this.tracks[track_id];
+    	track.setFilterFunction(func);
+    }
+    setTrackColorFunction(track_id,func){
+    	let track = this.tracks[track_id];
+    	track.setColorFunction(func);
+    }
+
+
+  
+
+
+
+
+    _tracksChanged(){
+    	for (let t_id of this.track_order){
+    		let track = this.tracks[t_id];
+    		//if this track is linked to the scale of another
+    		//get pointer to the track
+    		let link_to = track.config['scale_link_to'];
+    		if (link_to){
+				let other_track = this.tracks[link_to];
+				if (other_track){
+					track.scale_link_to=other_track;
+				}
+    		}
+    	}
+    }
+
+
+    
+	 
+	 
+	 
+
+  
+
+   /**
+    * Updated the panel view, if chromosome start and end are supplied
+    * it will go to this location. If no parameters are given the panel
+    * will be redrawn at the same location e.g after the color, scale or another
+    * paramter has been set
+    * @param {string} force - If true then a cached image will not be used
+    * @param {integer} start of the region to draw
+    * @param {integer} end of the region to draw
+    */
+
+    update (chr,start,end,no_propagation) {
+    	this.call_update_listener=no_propagation;
+        if (chr){
+            this.chr=chr;
+            this.start=start;
+            this.end=end;
+            this.repaint();
+        }
+        else{
+        	this.repaint(true,true);
+        }
+
+
+       
+    };
+
+
+    getAllFeatures(bpStart, bpEnd,force,data) {
+        let promises = [];
+        for (let track_id  of this.track_order){
+        	let track = this.tracks[track_id];
+        	promises.push(track.getFeatures(this.chr,bpStart,bpEnd,force,data));       
+        }
+        return Promise.all(promises);    
+    }
+
+    /**
+     * Repaint the view, using a cached image if available.
+     * @param {boolean} force - If true then a cached image will not be used
+     * @param {boolean} range_from_tile Redraw the tile
+     */
+    repaint(force,range_from_tile) {
+
+       
+		
+        var pixelWidth,
+            bpWidth,
+            bpStart,
+            bpEnd,
+            self = this,
+            ctx,
+            referenceFrame,
+            chr,
+            refFrameStart,
+            refFrameEnd,
+            success;
+
+        chr = this.chr;
+        refFrameStart = this.start;
+        refFrameEnd = this.end;
+        this.bpPerPixel=(this.end-this.start)/this.canvas.width;
+        let get_features=true;
+        if (this.tile && this.tile.containsRange(chr, refFrameStart, refFrameEnd, this.bpPerPixel)){
+            get_features=false;
+        } 
+        if (!get_features && !force && !this.force_redraw) {
+            this.force_redraw=false;
+            this.paintImage();
+            if (!self.call_update_listener){
+            	self.listeners.view_changed.forEach((func)=>{func(self.chr,self.start,self.end)});
+            }
+            self.call_update_listener=false;
+            /*if (this.highlight_div){
+            	this.highlightRegion(this.chr,this.start,this.end);
+            }*/
+         
+            self.retries=0;
+        }
+        else {
+            // Expand the requested range so we can pan a bit without reloading
+            this.force_redraw=false;
+            pixelWidth = ((this.buffer_level*2)+1) * this.canvas.width;
+            bpWidth = Math.round(pixelWidth*this.bpPerPixel);
+            bpStart = Math.max(0, Math.round(this.start-(this.buffer_level*this.canvas.width*this.bpPerPixel)));
+            bpEnd = bpStart + bpWidth;
+            if (range_from_tile){
+                bpStart=this.tile.startBP;
+                bpEnd=this.tile.endBP;
+            }
+
+            if (self.loading)return;// && self.loading.start === bpStart && self.loading.end === bpEnd) return;
+
+            self.loading = {start: bpStart, end: bpEnd};
+
+            Utils.startSpinnerAtParentElement(self.trackDiv);
+
+
+            self.getAllFeatures( bpStart, bpEnd,!get_features,{pixelWidth:pixelWidth,bpPerPixel:self.bpPerPixel})
+
+                .then(function (all_features) {
+                    
+                   
+                    Utils.stopSpinnerAtParentElement(self.trackDiv);
+
+                    if (all_features) {
+                        self.retries=0;
+                 
+                        var buffer = document.createElement('canvas');
+                        buffer.width = pixelWidth;
+                        buffer.height = self.canvas.height;
+                        ctx = buffer.getContext('2d');
+                   
+                        var options ={
+                             context: ctx,
+                             bpStart: bpStart,
+                             bpPerPixel: self.bpPerPixel,
+                             pixelWidth: buffer.width,
+                             pixelHeight: buffer.height
+                        };
+                        let top=0;
+                        self.groups={};
+                        for (var i in all_features){
+                        	let track = self.tracks[self.track_order[i]];
+                        	options.features=all_features[i];
+                        	let group = track.config.group
+                        	if (group){
+                        		if (!self.groups[group]){
+                        			self.groups[group]={top:top,height:track.config.height}
+                        		}
+                        		options.top=self.groups[group].top;
+                        		options.height=self.groups[group].height;
+
+                        	}
+                        	else{
+                        		options.top =top
+                        	}
+                            let offset=track.drawFeatures(options);
+                         	  if (offset){
+                         	  	top=offset;
+                            }
+                                      
+                        }
+                         self.loading = false;
+
+                        // Paint the axis if defined.  NOTE: its important that this is called after "draw" as
+                        // autoscale for numeric tracks is called during the draw function
+                       if (false) {
+
+                            //var buffer2 = document.createElement('canvas');
+                           var c_width = self.canvas.width;
+                            var c_height = self.canvas.height;
+
+                           // var ctx2 = buffer2.getContext('2d');
+
+                            self.track.paintAxis(ctx,c_width, c_height);
+
+                            //self.controlCtx.drawImage(buffer2, 0, 0);
+                        }
+
+                        self.tile = new Tile(chr, bpStart, bpEnd, self.bpPerPixel, buffer);
+                        self.paintImage();
+                        if (!self.call_update_listener){
+                        	self.listeners.view_changed.forEach((func)=>{func(self.chr,self.start,self.end)});
+                        }
+                        self.call_update_listener=false;
+                        /*if (self.highlight_div){
+            				self.highlightRegion(this.chr,this.start,this.end);
+            			}*/
+         
+                        
+
+                    }
+                    else {
+                        self.ctx.clearRect(0, 0, self.canvas.width, self.canvas.height);
+                    }
+
+                })
+                .catch(function (error) {
+                    self.loading = false;
+                    console.log(error);
+                    if (error instanceof igv.AbortLoad) {
+                        console.log("Aborted ---");
+                    }
+                    else{
+                        igv.stopSpinnerAtParentElement(self.trackDiv);
+                        console.log(error);
+                        igv.presentAlert(error);
+                    }
+                });
+        }
+
+
+        function viewIsReady() {
+            return this.track;
+        }
+
+    };
+    
+
+    paintImage() {
+
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (this.tile) {
+            this.xOffset = Math.round((this.tile.startBP - this.start)/this.bpPerPixel);
+            this.ctx.drawImage(this.tile.image, this.xOffset, 0);
+            this.ctx.save();
+            this.ctx.restore();
+        }
+    };
+
+    allowUserFeatureOver(){
+    	let self = this;
+
+    	 $(this.canvas).on("mousemove.feature_over",function (e) {
+    	 	if (self.loading){
+    	 		return;
+    	 	}
+    	 	clearTimeout(self.moto);
+    	 	self.moto=setTimeout(function(){
+    	 		if (!self.is_dragging){
+					let info=self.getFeatureAt(e);
+					let i = self.mouse_over_feature;
+					if (info.feature ){
+						if(i && i.feature!==info.feature){
+							self.listeners.feature_over.forEach((func)=>{func(i.track,i.feature,e,"out")});
+						}
+					
+						if ((!i) || (i.feature!==info.feature)){
+							self.listeners.feature_over.forEach((func)=>{func(info.track,info.feature,e,"over")});
+							self.mouse_over_feature=info;
+						}
+					}
+					else{
+						let i = self.mouse_over_feature
+						if (i){
+							self.listeners.feature_over.forEach((func)=>{func(i.track,i.feature,e,"out")});
+							self.mouse_over_feature=null;
+						}
+					}
+    	 		}
+    	 	},10);
+    	 });
+
+    }
+
+    removeFeatureOverHandler(){
+    		$(this.canvas).off("mousedown.feature_over");
+    }
+
+
+	allowUserFeatureClick(){
+    	let self = this;
+
+    	this.allowUserFeatureOver();
+    	this.addListener("feature_over",function(track,feature,over,type){
+    		if(!feature){
+    			self.trackDiv.css("cursor","default")
+    		}
+    		let pointer=(type==="over")?"pointer":"default";
+    		self.trackDiv.css("cursor",pointer);
+
+    	})
+
+    	 $(this.canvas).on("mousedown.feature_click",function (e) {
+    	 	if (self.loading){
+    	 		return;
+    	 	}
+    	 	clearTimeout(self.to);
+    	 	self.to=setTimeout(function(){
+    	 		if (!self.is_dragging){
+					let info=self.getFeatureAt(e);
+					if (info.track){
+						self.listeners.feature_clicked.forEach((func)=>{func(info.track,info.feature,e)});
+					}
+    	 		}
+    	 		else{
+    	 			console.log("sss");
+    	 		}
+    	 	},200);
+    	 });
+
+    }
+
+
+    removeFeatureOverHandler(){
+    	$(this.canvas).off("mousedown.feature_click");
+    }
+
+
+
+    allowUserDrag(){
+    	let self=this;
+    	 $(self.canvas).on("mousedown.draghandler",function (e) {
+    	 	if (e.shiftKey){
+    	 		return;
+    	 	}
+            var canvasCoords = Utils.translateMouseCoordinates(e, self.canvas);
+            self.isMouseDown = true;
+            self.start_dragging=true;
+            self.lastMouseX = canvasCoords.x;
+            self.mouseDownX = self.lastMouseX;
+
+        })
+       	.on("mousemove.draghandler",function (e) {
+            let canvasCoords = Utils.translateMouseCoordinates(e, self.canvas);
+            if (self.is_dragging || self.start_dragging){
+                var diff = canvasCoords.x-self.lastMouseX;
+                var bp_diff=self.bpPerPixel*diff;
+                self.start-=bp_diff;
+                self.end-=bp_diff;
+                self.repaint();
+                self.lastMouseX=canvasCoords.x;
+                if (self.start_dragging && diff>5){
+                	self.is_dragging=true;
+                	self.start_dragging=false;
+                }
+               }
+        })
+        .on("mouseup.draghandler",function (e) {   
+              self.is_dragging=false;
+              self.start_dragging=false;
+        });
+        return this;
+    }
+
+    removeDragHandler(){
+    	$(this.canvas).off("mousedown.draghandler mousemove.draghandler mouseup.draghandler");
+    }
+
+
+    allowUserZoom(){
+    	let self = this;
+    	$(self.canvas).on('mousewheel.zoom  mouse.zoom', function(event) {
+    	 	if (self.loading || (self.bpPerPixel<0.05 && event.originalEvent.deltaY>0)){
+    	 		return;
+    	 	}
+    	 	
+   
+    	 	let canvasCoords = Utils.translateMouseCoordinates(event, self.canvas);
+            let factor = event.originalEvent.deltaY<0?2:0.5;
+            let mbp= (self.start+ canvasCoords.x * self.bpPerPixel)
+            let new_length = (self.end-self.start)*factor;
+            let new_start = mbp-((canvasCoords.x/self.canvas.width)*new_length);
+            self.start=  new_start
+            self.end= new_start+new_length;
+            
+            self.repaint();      
+         });
+         return this;
+         
+    }
+
+    disableUserZoom(){
+		$(this.canvas).off("mousewheel.zoom");
+    }
+
+
+    setHighlight(start,end){
+
+    }
+    
+    
+    allowUserRangeSelection(){
+        let self = this;
+        this.trackDiv.on("mousedown.selection",function(e){
+            if (e.shiftKey){
+                self.start_select =Utils.translateMouseCoordinates(e,this).x;
+                let left = self.start_select+"px";
+                let td = $(this);
+                self.select_div=$("<div>").css({"position":"absolute","opacity":0.2,"background-color":"blue","top":"0px","height":td.css("height"),left:left,"width":"0px"})
+                .appendTo(td);
+              
+                e.stopPropagation();
+            }
+        })
+        .on("mousemove.selection",function(e){
+            if (e.shiftKey && self.start_select){
+                let x=Utils.translateMouseCoordinates(e,this).x;
+                if (x<self.start_select){
+                    self.select_div.css({"left":x+"px","width":(self.start_select-x)+"px"});
+                }
+                else{
+                   
+                     self.select_div.css({"left":self.start_select+"px","width":(x-self.start_select)+"px"});
+                }
+             
+                e.stopPropagation();
+            }
+        })
+        .on("mouseup.selection",function(e){
+            if (self.start_select){
+                let x=Utils.translateMouseCoordinates(e,this).x;
+                let start = self.start + (self.start_select*self.bpPerPixel);
+                let end =  self.start + (x*self.bpPerPixel);
+                self.start_select=null;
+                self.select_div.remove();
+                if (start>end){
+                	let temp=end;
+                	end=start;
+                	start=temp;
+                }
+                self.listeners.range_selected.forEach((func)=>{func(self.chr,start,end)});
+            }
+        });
+
+    }
+
+    highlightRegion(chr,start,end){
+    	 
+    	 let pxStart=(((start-this.start)/this.bpPerPixel))+"px";
+    	 let pxWidth= ((end-start)/this.bpPerPixel)+"px";
+    	 let td= this.trackDiv;
+    	 if (!this.highlight_div){
+    	 this.highlight_div=$("<div>").css({"position":"absolute","opacity":0.2,"background-color":"blue","top":"0px","height":td.css("height"),left:pxStart,"width":pxWidth})
+                .appendTo(td);
+    	 }
+    	 else{
+    	 	this.highlight_div.css({left:pxStart,width:pxWidth});
+    	 }
+    }
+    
+    removeAllowSelection(){
+    	$(this.canvas).off("mousedown.selection mousemove.selection mouseup.selection");
+    }
+    
+    
+    allowUserDrop(){
+        let div = this.trackDiv;
+        let self = this;
+        div.droppable({
+        	over:function(e,ui){
+        		let track = ui.draggable.data("track");
+        		let panel = ui.draggable.data("panel");
+        		if (panel===self){
+        			return;
+        		}
+        		if  (track ){
+        			let icon = "<span class='ui-icon ui-icon-check'></span>";
+        			if (track.no_drop || self.tracks[track.track_id]){
+        				icon="<span class='ui-icon  ui-icon-closethick'></span>"
+        			}
+        			setTimeout(()=>{
+        			ui.helper.prepend(icon).css("white-space","nowrap");
+        			},20);
+
+        		}
+        	},
+        	greedy:true,
+        	out:function(e,ui){
+        		ui.helper.find(".ui-icon").remove();
+        	},
+            drop:function(e,ui){
+                 let track = $(ui.draggable[0]).data("track");
+                 ui.helper.find(".ui-icon").remove();
+
+                 if (!track){
+                     return
+                 }
+                 let panel=$(ui.draggable[0]).data("panel");
+
+                 if (panel===self || track.no_drop || self.tracks[track.track_id]) {  
+                     return;
+                 }
+                 else{
+                	 if (panel){
+                		 panel.removeTrack(track.track_id);
+                		 panel.update();
+                	 }
+                      self.addTrack(track);
+                      self.update();
+                 }
+            }
+        });
+        return this;
+    }
+
+    
+    /**
+	* Gets the feature that was clicked
+	* @param {JQuery Event} e - Can be any object- all that is required is pageX and PageY
+	* @returns {object} An object with track - the track config at the event position(or null) and
+	* feature - the feature at the postition (or null). 
+	*/
+
+     getFeatureAt(e){
+    	 let co = Utils.translateMouseCoordinates(e, this.canvas);
+    	 let gl = Math.round(this.start+(co.x*this.bpPerPixel));
+    	 for (let t in this.tracks){
+    	 	let track = this.tracks[t];
+    	 	if (co.y>track.top && co.y<track.bottom){
+    	 		return {track:track,
+    	 				feature:track.getFeatureAt(gl,this.chr,co.y,this.bpPerPixel)
+    	 		};
+    	 	}		
+    	 }
+    	 return {track:null,feature:null};
+    }
+    
+
+    allowUserResize(direction){
+    	let handles="all";
+    	if (direction==="vertical"){
+    		handles="n,s";
+    	}
+    	else if (direction==="horizontal"){
+    		handles="e,w";
+    	}
+        let div = this.trackDiv;
+        let self = this;
+		
+        div.resizable({
+          
+            resize:function(e,ui){
+            	if (self.loading){
+            		return false;
+            	}
+            	clearTimeout(self.to);
+            	self.to=setTimeout(function(e){
+            		self.setWidth(ui.size.width);
+            		self.setHeight(ui.size.height);
+            		self.update();
+            	},100)
+                
+            },
+            handles:handles
+
+        });
+        return this;
+    }
+
+    allowUserMove(direction){
+    	let axis=false;
+    	let icon= "fa-arrows-alt";
+    	if (direction=="vertical"){
+    		axis="y";
+    		icon +="-v";
+    	}
+    	else if (direction=="horizontal"){
+    		axis="x";
+    		icon+="-h";
+    	}
+    	let div = this.trackDiv;
+		div.find(".panel-icon-div").prepend($("<span class='track-handle fas "+icon+"'></span>").css({"cursor":"move"}));
+        let self =this;
+        div.draggable({handle:".track-handle",axis:axis});
+        return this;
+    }
+
+    allowUserClose(){
+		let div = this.trackDiv;
+		let icon=$("<span class='fas fa-times'></span>").css({"cursor":"not-allowed"})
+				.click(()=>{div.remove()})
+		div.find(".panel-icon-div").append(icon);
+    }
+
+    setWidth(width){
+        $(this.viewportDiv).width(width);
+        $(this.contentDiv).width(width);
+        this.canvas.setAttribute('width', width);
+    }
+
+    setHeight(height){
+        $(this.viewportDiv).height(height);
+        $(this.contentDiv).height(height);
+        this.canvas.setAttribute('height',height);  
+    }
+
+    
+    redrawTile(features) {
+
+        if (!this.tile) return;
+
+        var self = this,
+            chr = self.tile.chr,
+            bpStart = self.tile.startBP,
+            bpEnd = self.tile.endBP,
+            buffer = document.createElement('canvas'),
+            bpPerPixel = self.tile.scale;
+
+        buffer.width = self.tile.image.width;
+        buffer.height = self.tile.image.height;
+        var ctx = buffer.getContext('2d');
+
+        self.track.draw({
+            features: features,
+            context: ctx,
+            bpStart: bpStart,
+            bpPerPixel: bpPerPixel,
+            pixelWidth: buffer.width,
+            pixelHeight: buffer.height
+        });
+
+
+        self.tile = new Tile(chr, bpStart, bpEnd, bpPerPixel, buffer);
+        self.paintImage();
+    }
+
+}
+
+
+class Tile{
+	constructor (chr, tileStart, tileEnd, scale, image) {
+		this.chr = chr;
+		this.startBP = tileStart;
+		this.endBP = tileEnd;
+		this.scale = scale;
+		this.image = image;
+	}
+
+	containsRange(chr, start, end, scale) {
+		if (this.scale!==scale){
+			console.log("scale:"+this.scale+"="+scale);
+		}
+		return this.scale.toFixed(3) === scale.toFixed(3) && start >= this.startBP && end <= this.endBP && chr === this.chr;
+	}
+
+	overlapsRange(chr, start, end) {
+		return this.chr === chr && this.endBP >= start && this.startBP <= end;
+	}
+}
+
+
+
+	 
+export {MLVPanel};
