@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+	<head>
+		<style>
+			#zoom-region {
+				position:absolute;
+				width:20px;
+				height: 150px;
+				left:400px;
+				top:10px;
+				background-color:gray;
+				opacity:0.4;
+			}
+		</style>
+ 	</head>
+
+ 	<body>
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary -->
+   	 	<script src="../dist/mlv_panel.js" ></script>
+		
+		<!-- The divs to hold the panels -->
+   	 	<div id="main-panel" style="height:150px;width:800px;border:1px solid black;"> </div>
+   		<div id="zoom-panel" style="position:absolute;height:300px;width:600px;border:1px solid black;top:160px;left:100px;"> </div>
+   		<!-- div to show the zoomed in region in the main panel -->
+  		<div id="zoom-region"></div>
+
+
+		<script>
+			//allow user interaction
+			var main_panel_config={
+				div:"main-panel",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+			}
+			//minimal config, only track urls given
+			var main_panel = new MLVPanel(
+				[
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",color:"#8e0000",discrete:true,height:100},
+					
+				],
+				main_panel_config
+			);
+			main_panel.addRulerTrack();
+			
+			var zoom_panel = new MLVPanel(
+				[
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",color:"#8e0000",scale:"dynamic"},
+					//also show expanded genes
+					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz",displayMode:"EXPANDED"}
+				],
+				{div:"zoom-panel"}
+			)
+			//updates the zoom panel
+			main_panel.addListener("view_changed",function(chr,start,end){
+				var len = end-start;
+				var st =start+((39/80)*len);
+				var en =end-((39/80)*len);
+				zoom_panel.update(chr,st,en);
+			});
+
+			main_panel.update("chr16",100000,200000);	
+		</script>
+ 	 </body>
+</html>

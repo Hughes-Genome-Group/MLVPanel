@@ -1,7 +1,30 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 Broad Institute
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 import {igvxhr} from "./igvxhr.js";
-if (!Zlib.Zlib){
-	Zlib.Zlib=Zlib;
-}
+
 
 //***********js/bigwig/bufferedReader.js*****************
 class BufferedReader{
@@ -72,9 +95,15 @@ class BufferedReader{
 //**********js/bigwig/bwSource.js***************
 class BWSource{
 
-    constructor(config) {
+    constructor(config,create_feature_function) {
         this.reader = new BWReader(config);
         this.bufferedReader = new BufferedReader(config);
+        if (!create_feature_function){
+            this.create_feature=BWSource.createFeature;
+        }
+        else{
+            this.create_feature=create_feature_function;
+        }
     }
     
     /**
@@ -101,7 +130,6 @@ class BWSource{
                 // Select a biwig "zoom level" appropriate for the current resolution
                 var bwReader = self.reader,
                     bufferedReader = self.bufferedReader,
-                    //temp_test***
                     bpp =data.bpPerPixel,
                     zoomLevelHeader=BWSource.zoomLevelForScale(bpp, zoomLevelHeaders),
                     treeOffset
@@ -116,7 +144,7 @@ class BWSource{
                         self.decodeFunction =BWSource.decodeWigData;
                     }
                     else {
-                        self.decodeFunction = BWSource.decodeBedData;
+                        self.decodeFunction =self.decodeBedData;
                     }
                 }
 
@@ -162,7 +190,7 @@ class BWSource{
                                 var en = new Date().getTime();
                                 var e = en-self.st;
                                 var a = bpp;
-                                console.log(e);
+                                //console.log(e);
                                 var i, allFeatures = featureArrays[0];
                                 if(featureArrays.length > 1) {
                                    for(i=1; i<featureArrays.length; i++) {
@@ -176,10 +204,17 @@ class BWSource{
                                 fulfill(allFeatures)
                             }).catch(reject);
 
-                        }).catch(reject);
+                        }).catch(function(error){
+                            reject(error);
+                        });
                     }
-                }).catch(reject);
-            }).catch(reject);
+                }).catch(function(error){
+                    reject(error)
+                });
+            }).catch(function(error){
+                reject(error);
+            }
+            );
 
 
         });
@@ -295,9 +330,11 @@ class BWSource{
                 sumSquares = binaryParser.getFloat();
                 value = validCount == 0 ? 0 : sumData / validCount;
 
-                if (chromStart >= bpEnd) {
-                    break; // Out of interval
+                if (chromStart >= bpEnd && chromStart<1000000000) {
+                     console.log("should have broken")
 
+                    break; // Out of interval
+                   
                 } else if (chromEnd > bpStart && Number.isFinite(value)) {
                     featureArray.push({chr: chr, start: chromStart, end: chromEnd, value: value});
                 }
@@ -308,7 +345,9 @@ class BWSource{
     }
 
 
-    static decodeBedData(data, chr, chrIdx, bpStart, bpEnd, featureArray) {
+
+
+    decodeBedData(data, chr, chrIdx, bpStart, bpEnd, featureArray) {
 
         var binaryParser = new BinaryParser(data),
             minSize = 3 * 4 + 1,   // Minimum # of bytes required for a bed record
@@ -336,8 +375,16 @@ class BWSource{
                 featureArray.push(feature);
 
                 tokens = rest.split("\t");
+                this.create_feature(tokens,feature);
 
-                if (tokens.length > 0) {
+                
+            }
+        }
+
+    }
+    
+    static createFeature(tokens,feature){
+        if (tokens.length > 0) {
                     feature.name = tokens[0];
                 }
 
@@ -354,8 +401,8 @@ class BWSource{
                     feature.cdEnd = parseInt(tokens[4]);
                 }
                 if (tokens.length > 5) {
-                    if (tokens[5] !== "." && tokens[5] !== "0")
-                        feature.color = igv.createColorString(tokens[5]);
+                    //if (tokens[5] !== "." && tokens[5] !== "0")
+                        //feature.color = igv.createColorString(tokens[5]);
                 }
                 if (tokens.length > 8) {
                     exonCount = parseInt(tokens[6]);
@@ -371,8 +418,6 @@ class BWSource{
 
                     feature.exons = exons;
                 }
-            }
-        }
 
     }
 }
@@ -394,7 +439,7 @@ class BWReader{
         this.path = config.url;
         this.headPath = config.headURL || this.path;
         this.rpTreeCache = {};
-        this.config = config;
+        this.config = $.extend({},config,true);
     };
 
     getZoomHeaders() {
@@ -537,7 +582,9 @@ class BWReader{
 
                 fulfill();
 
-            }).catch(reject);
+            }).catch(function(error){
+                reject(error);
+            });
         });
     }
 

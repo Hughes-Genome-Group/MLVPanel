@@ -1,76 +1,69 @@
 <!doctype html>
 <html>
-  <head>
-	<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
-	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css">
-  </head>
-  <body>
-	<div id="the-track" style="height:500px;width:700px;border:1px solid black;"> </div>
-     <script src="../src/vendor/zlib_and_gzip.min.js"></script>
-     <script type = "module">
-    	import '../src/vendor/jquery.min.js';
-		import '../src/vendor/jquery-ui.min.js';
-    	import {MLVPanel} from '../src/panel.js';
-    	import {MLVTrack} from '../src/tracks.js'
+ 	<head>
+ 		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
+		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
+	</head>
+	<body>
+		<div id="the-track" style="height:500px;width:700px;border:1px solid black;"> </div>
+		<script src="../src/vendor/zlib_and_gzip.min.js"></script>
+		<script type = "module">
+			import '../src/vendor/jquery.min.js';
+			import '../src/vendor/jquery-ui.min.js';
+			import {MLVPanel} from '../src/panel.js';
+			import {MLVTrack} from '../src/tracks.js'
 
-    	class UCSCMLVTrack extends MLVTrack{
-			constructor(config){
-				super(config);
-				this.image=null;
+			class UCSCMLVTrack extends MLVTrack{
+				constructor(config){
+					config.url = config.url.replace("hgTracks","hgRenderTracks");
+					super(config);
+					this.image=null;
+				}
+
+				getFeatures(chr,bpStart,bpEnd,force,data){
+					let self=this;
+					let width = data.pixelWidth+44;
+					width = ((bpEnd-bpStart)/data.bpPerPixel)+44;
+					return new Promise(function (fulfill, reject) {
+						self.image = new Image();
+						self.image.onload = function () {
+							fulfill([]);
+						};
+						let url = self.config.url;
+						let args ="&position="+chr+":"+bpStart+"-"+bpEnd+"&pix="+(width)+"&hgt.labelWidth=5";
+						self.image.src =url+args;        
+					});		
+				}
+
+				drawFeatures(options) {
+					let ctx = options.context;
+					ctx.drawImage(this.image,-44,options.top);
+					this.bottom = options.top+this.image.height;
+					return this.bottom;
+				}
 			}
 
-			getFeatures(chr,bpStart,bpEnd,force,data){
-				let self=this;
-				let width = data.pixelWidth+44;
-				width = ((bpEnd-bpStart)/data.bpPerPixel)+44;
-				return new Promise(function (fulfill, reject) {
-					self.image = new Image();
-					self.image.onload = function () {
-    					fulfill([]);
-					};
-					let url = self.config.url;
-					let args ="&position="+chr+":"+bpStart+"-"+bpEnd+"&pix="+(width)+"&hgt.labelWidth=5";
-					self.image.src =url+args;        
-        		});		
+			MLVTrack.custom_tracks['ucsc_track']=UCSCMLVTrack;
+
+			let panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
 			}
 
-			drawFeatures(options) {
-          		let ctx = options.context;
-           		ctx.drawImage(this.image,-44,options.top);
-           		this.bottom = options.top+this.image.height;
-           		return this.bottom;
-			}
 
-		}
-
-		MLVTrack.custom_tracks['ucsc_track']=UCSCMLVTrack;
-
-		let panel_config={
-			div:"the-track",
-			allow_user_drag:true,
-			allow_user_zoom:true,
-			allow_user_resize:true
-		}
-
-
-		let panel1 = new MLVPanel(
-			[
-				{url:"https://genome-euro.ucsc.edu/cgi-bin/hgRenderTracks?db=hg19&hgsid=228998380_TeJU06qcRcR1d1udXavcbdO3KM40",
-				type:"ucsc_track",short_label:"UCSC"
-				},
-				{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",scale:"fixed",max_y:40,color:"blue",short_label:"ATAC Peaks",discrete:true,height:100,group:"g2",track_id:"blue"}
-				
-			],
+			let panel1 = new MLVPanel(
+				[
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",scale:"dynamic",color:"blue",short_label:"ATAC Peaks",discrete:true,height:100,group:"g2",track_id:"blue"},
+					{url:"https://genome-euro.ucsc.edu/cgi-bin/hgTracks?hgS_doOtherUser=submit&hgS_otherUserName=mjs123&hgS_otherUserSessionName=hg19_test",
+						type:"ucsc_track",short_label:"UCSC"
+					}
+				],
 				panel_config
-		);
-		panel1.addRulerTrack();
-		panel1.addLegend();
-		
-			
-
-		panel1.update("chr16",32872084,32901083);
-
-
+			);
+			panel1.addRulerTrack();
+			panel1.addLegend();
+			panel1.update("chr16",33930000,33978000);
 		</script>
   	</body>
 </html>

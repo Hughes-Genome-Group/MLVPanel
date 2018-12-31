@@ -5,3 +5,4 @@ working_test.html
 tests/
 custom_index.js
 custom/
+*_custom.js

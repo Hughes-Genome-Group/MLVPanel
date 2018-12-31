@@ -1,10 +1,35 @@
 import {MLVTrackDialog} from "./track_dialog.js";
 
 class PanelLegend{
-    constructor(panel){
+    constructor(panel,config){
+        if (!config){
+            config={};
+        }
+
         this.panel=panel;
         this.track_index={};
-        this.div=$("<div>").css({"position":"absolute","top":"0px","left":"0px","border":"0.5px solid black","background-color":"white"});
+        this.div=$("<div>").css({"position":"absolute","top":"0px","right":"0px","border":"0.5px solid black","font-size":"14px"})
+
+        if (config.draggable || config.draggable=== undefined){
+
+          this.div.draggable({
+            containment:"parent",
+            drag:function(event,ui){
+                $._no_drag=true;
+                $(this).css("right","");
+            },
+            stop:function(event,ui){
+                $._no_drag=false;
+            }
+
+         })
+
+        }
+
+         if (config.transparent == false || config.transparent===undefined){
+             this.div.css("background-color","white")
+         }
+    
         this.li =$("<ul>").css({"list-style-type":"none","padding":"4px","margin":"4px"});
         for (let id of panel.track_order){
            this.addTrack(panel.tracks[id].config);
@@ -71,7 +96,9 @@ class PanelLegend{
     
     addTrack(track){
         let self = this;
-        let item = $("<li>").data({track:track,panel:this.panel}).click(function(e){
+        let item = $("<li>").data({track:track,panel:this.panel})
+        .css({"white-space":"nowrap"})
+        .click(function(e){
             new MLVTrackDialog(track,self.panel);
         });
         let span = $("<span>").width(15).height(15).css({"display":"inline-block","margin-right":"3px"});

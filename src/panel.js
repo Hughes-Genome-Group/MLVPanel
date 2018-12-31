@@ -1,3 +1,28 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 Broad Institute
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 /**
  * Class representing a lightweight panel the can host multiple tracks of
  * different types
@@ -19,6 +44,11 @@ class MLVPanel {
 			config={};
 		}
 
+		this.show_scale=true;
+		if (config.show_scale){
+       		this.show_scale=true;
+       	}
+
 		let height=config.height?config.height:200;
 		let width= config.width?config.width:400;
 		let dim={height:height,width:width};
@@ -28,7 +58,12 @@ class MLVPanel {
 
 		}
 		else{
-			panel_div=$("#"+config.div);
+			if (typeof config.div === 'string' ){
+				panel_div=$("#"+config.div);
+			}
+			else{
+				panel_div=$(config.div);
+			}
 			height=panel_div.height();
 			width=panel_div.width();
 		}
@@ -52,6 +87,10 @@ class MLVPanel {
         this.canvas.setAttribute('height', height);
         this.ctx = this.canvas.getContext("2d");
 
+        if (this.show_scale){
+        	this.addScaleCanvas(height);
+        }
+
        
         this.trackDiv.append(Utils.spinner());
 
@@ -69,6 +108,8 @@ class MLVPanel {
        	this.buffer_level=1;
 
        	this.groups={};
+
+       	this.highlighted_regions={};
 
        	//listeners
 		this.listeners={
@@ -105,6 +146,16 @@ class MLVPanel {
        	if (config.allow_user_drop){
        		this.allowUserDrop();
        	}
+       
+       	this.retries=0;
+    }
+
+    addScaleCanvas(height){
+    	this.scale_canvas = $('<canvas>').css({position:"absolute",top:"0px",left:"5px"});
+    	this.scale_canvas[0].setAttribute('width', 100);
+        this.scale_canvas[0].setAttribute('height', height);
+        this.scale_canvas.appendTo(this.trackDiv);
+        this.scale_ctx=this.scale_canvas[0].getContext("2d");
     }
 
     /**
@@ -127,6 +178,21 @@ class MLVPanel {
     
     addLegend(){
     	this.legend = new PanelLegend(this);
+    }
+
+    setHighlightedRegion(location,name,color){
+    	this.highlighted_regions[name]={
+    		chr:location.chr,
+    		start:location.start,
+    		end:location.end,
+    		color:color
+    	}
+    	this.force_redraw=true;
+
+    }
+    removeHighlightedRegion(name){
+    	delete this.highlighted_regions[name];
+    	this.force_redraw=true;
     }
 
 
@@ -160,7 +226,7 @@ class MLVPanel {
     	return id;
     }
 
-     /**
+    /**
 	* Removes a listener to the panel
 	* @param {string} type - The type of listener - track_empty 
 	* @param {string} id - The id of the handler to remove
@@ -174,7 +240,11 @@ class MLVPanel {
     	return listener.delete(id);
     }
     
-    
+     
+    /**
+	* Removes a listener to the panel
+	* @param {object} config - The config of the track to add 
+	*/
     addTrack(config){
     	let track=MLVTrack.getTrack(config);
 		this.tracks[config.track_id]=track;
@@ -191,8 +261,11 @@ class MLVPanel {
               this.listeners[type][l_id](config);
           }
     }
-
-
+    
+	 /**
+	* Removes a listener to the panel
+	* @param {object} config - The config of the track to add 
+	*/
     removeTrack(track_id){
     	this.track_order = this.track_order.filter(e => e !== track_id);
     	this.repaint(true,true);
@@ -208,6 +281,11 @@ class MLVPanel {
             }
         }
 
+    }
+
+    getTrackConfig(track_id){
+    	let track = this.tracks[track_id];
+    	return track.getConfig();
     }
     
     setTrackAttribute(track_id,key,value){
@@ -256,6 +334,12 @@ class MLVPanel {
 				}
     		}
     	}
+    }
+
+
+    getCurrentTrackFeatures(track_id){
+    	let track = this.tracks[track_id];
+    	return track.getCurrentFeatures(this.chr,this.start,this.end);
     }
 
 
@@ -338,9 +422,7 @@ class MLVPanel {
             	self.listeners.view_changed.forEach((func)=>{func(self.chr,self.start,self.end)});
             }
             self.call_update_listener=false;
-            /*if (this.highlight_div){
-            	this.highlightRegion(this.chr,this.start,this.end);
-            }*/
+       
          
             self.retries=0;
         }
@@ -359,6 +441,7 @@ class MLVPanel {
             if (self.loading)return;// && self.loading.start === bpStart && self.loading.end === bpEnd) return;
 
             self.loading = {start: bpStart, end: bpEnd};
+            self.trackDiv.find(".mlv-alert").remove();
 
             Utils.startSpinnerAtParentElement(self.trackDiv);
 
@@ -368,10 +451,10 @@ class MLVPanel {
                 .then(function (all_features) {
                     
                    
-                    Utils.stopSpinnerAtParentElement(self.trackDiv);
+                 
 
                     if (all_features) {
-                        self.retries=0;
+                        
                  
                         var buffer = document.createElement('canvas');
                         buffer.width = pixelWidth;
@@ -406,53 +489,51 @@ class MLVPanel {
                          	  if (offset){
                          	  	top=offset;
                             }
+                            if (self.show_scale){
+                            	track.drawScale(options.pixelHeight,self.scale_ctx)
+                            }
                                       
                         }
-                         self.loading = false;
-
-                        // Paint the axis if defined.  NOTE: its important that this is called after "draw" as
-                        // autoscale for numeric tracks is called during the draw function
-                       if (false) {
-
-                            //var buffer2 = document.createElement('canvas');
-                           var c_width = self.canvas.width;
-                            var c_height = self.canvas.height;
-
-                           // var ctx2 = buffer2.getContext('2d');
-
-                            self.track.paintAxis(ctx,c_width, c_height);
-
-                            //self.controlCtx.drawImage(buffer2, 0, 0);
+                        for (let name in self.highlighted_regions){
+                        	let region = self.highlighted_regions[name];
+                        	if (self.chr !== region.chr){
+                        		continue;
+                        	}
+                        	if (region.end<bpStart ||region.start>bpEnd){
+                        		continue
+                        	}
+                        	self.drawHighlightedRegion(region,options);
                         }
-
+                        self.retries=0;
+                        self.loading = false;
                         self.tile = new Tile(chr, bpStart, bpEnd, self.bpPerPixel, buffer);
                         self.paintImage();
                         if (!self.call_update_listener){
                         	self.listeners.view_changed.forEach((func)=>{func(self.chr,self.start,self.end)});
                         }
                         self.call_update_listener=false;
-                        /*if (self.highlight_div){
-            				self.highlightRegion(this.chr,this.start,this.end);
-            			}*/
-         
-                        
-
+                    
                     }
                     else {
                         self.ctx.clearRect(0, 0, self.canvas.width, self.canvas.height);
                     }
+                    Utils.stopSpinnerAtParentElement(self.trackDiv);
 
                 })
                 .catch(function (error) {
                     self.loading = false;
+                  
                     console.log(error);
-                    if (error instanceof igv.AbortLoad) {
-                        console.log("Aborted ---");
+                    if (self.retries<3 && error!=="Timed out"){
+                    	self.retries++;
+                    	self.repaint(force,range_from_tile);
                     }
+                   
                     else{
-                        igv.stopSpinnerAtParentElement(self.trackDiv);
-                        console.log(error);
-                        igv.presentAlert(error);
+                        Utils.stopSpinnerAtParentElement(self.trackDiv);
+                        self.loading=false;
+                        self.force_redraw=true;
+                        Utils.presentAlert(self.trackDiv,error);
                     }
                 });
         }
@@ -461,8 +542,20 @@ class MLVPanel {
         function viewIsReady() {
             return this.track;
         }
-
+ 
     };
+
+    drawHighlightedRegion(region,options){
+    	let start= (region.start-options.bpStart)/options.bpPerPixel;
+    	start = start<0?0:start;
+
+    	let width = (region.end-region.start)/options.bpPerPixel;
+    	width =width>options.pixelWidth?options.pixelWidth:width;
+		options.context.globalAlpha=0.05;
+		options.context.fillStyle=region.color;
+    	options.context.fillRect(start,0,width,options.pixelHeight);
+    	options.context.globalAlpha=1.0;
+    }
     
 
     paintImage() {
@@ -480,7 +573,7 @@ class MLVPanel {
     allowUserFeatureOver(){
     	let self = this;
 
-    	 $(this.canvas).on("mousemove.feature_over",function (e) {
+    	 this.trackDiv.on("mousemove.feature_over",function (e) {
     	 	if (self.loading){
     	 		return;
     	 	}
@@ -513,7 +606,7 @@ class MLVPanel {
     }
 
     removeFeatureOverHandler(){
-    		$(this.canvas).off("mousedown.feature_over");
+    		this.trackDiv.off("mousedown.feature_over");
     }
 
 
@@ -530,7 +623,7 @@ class MLVPanel {
 
     	})
 
-    	 $(this.canvas).on("mousedown.feature_click",function (e) {
+    	 this.trackDiv.on("mousedown.feature_click",function (e) {
     	 	if (self.loading){
     	 		return;
     	 	}
@@ -542,9 +635,6 @@ class MLVPanel {
 						self.listeners.feature_clicked.forEach((func)=>{func(info.track,info.feature,e)});
 					}
     	 		}
-    	 		else{
-    	 			console.log("sss");
-    	 		}
     	 	},200);
     	 });
 
@@ -552,14 +642,14 @@ class MLVPanel {
 
 
     removeFeatureOverHandler(){
-    	$(this.canvas).off("mousedown.feature_click");
+    	this.trackDiv.off("mousedown.feature_click");
     }
 
 
 
     allowUserDrag(){
     	let self=this;
-    	 $(self.canvas).on("mousedown.draghandler",function (e) {
+    	 this.trackDiv.on("mousedown.draghandler",function (e) {
     	 	if (e.shiftKey){
     	 		return;
     	 	}
@@ -593,13 +683,13 @@ class MLVPanel {
     }
 
     removeDragHandler(){
-    	$(this.canvas).off("mousedown.draghandler mousemove.draghandler mouseup.draghandler");
+    	this.trackDiv.off("mousedown.draghandler mousemove.draghandler mouseup.draghandler");
     }
 
 
     allowUserZoom(){
     	let self = this;
-    	$(self.canvas).on('mousewheel.zoom  mouse.zoom', function(event) {
+    	this.trackDiv.on('mousewheel.zoom  mouse.zoom', function(event) {
     	 	if (self.loading || (self.bpPerPixel<0.05 && event.originalEvent.deltaY>0)){
     	 		return;
     	 	}
@@ -620,7 +710,7 @@ class MLVPanel {
     }
 
     disableUserZoom(){
-		$(this.canvas).off("mousewheel.zoom");
+		this.trackDiv.off("mousewheel.zoom");
     }
 
 
@@ -674,22 +764,13 @@ class MLVPanel {
 
     }
 
-    highlightRegion(chr,start,end){
-    	 
-    	 let pxStart=(((start-this.start)/this.bpPerPixel))+"px";
-    	 let pxWidth= ((end-start)/this.bpPerPixel)+"px";
-    	 let td= this.trackDiv;
-    	 if (!this.highlight_div){
-    	 this.highlight_div=$("<div>").css({"position":"absolute","opacity":0.2,"background-color":"blue","top":"0px","height":td.css("height"),left:pxStart,"width":pxWidth})
-                .appendTo(td);
-    	 }
-    	 else{
-    	 	this.highlight_div.css({left:pxStart,width:pxWidth});
-    	 }
-    }
     
     removeAllowSelection(){
-    	$(this.canvas).off("mousedown.selection mousemove.selection mouseup.selection");
+    	this.trackDiv.off("mousedown.selection mousemove.selection mouseup.selection");
+    }
+
+    getImage(){
+    	 var imgURL = this.canvas[0].toDataURL(MIME_TYPE);
     }
     
     
@@ -758,7 +839,7 @@ class MLVPanel {
     	 	let track = this.tracks[t];
     	 	if (co.y>track.top && co.y<track.bottom){
     	 		return {track:track,
-    	 				feature:track.getFeatureAt(gl,this.chr,co.y,this.bpPerPixel)
+    	 				feature:track.getFeatureAt(gl,this.chr,co,this.bpPerPixel)
     	 		};
     	 	}		
     	 }
@@ -780,9 +861,11 @@ class MLVPanel {
         div.resizable({
           
             resize:function(e,ui){
+            	e.stopPropagation();
             	if (self.loading){
             		return false;
             	}
+
             	clearTimeout(self.to);
             	self.to=setTimeout(function(e){
             		self.setWidth(ui.size.width);
@@ -823,15 +906,16 @@ class MLVPanel {
     }
 
     setWidth(width){
-        $(this.viewportDiv).width(width);
-        $(this.contentDiv).width(width);
+        this.trackDiv.width(width);
         this.canvas.setAttribute('width', width);
     }
 
     setHeight(height){
-        $(this.viewportDiv).height(height);
-        $(this.contentDiv).height(height);
-        this.canvas.setAttribute('height',height);  
+        $(this.trackDiv).height(height);
+        this.canvas.setAttribute('height',height);
+        if (this.show_scale){
+        	this.scale_canvas[0].setAttribute("height",height);
+        }
     }
 
     
@@ -877,8 +961,8 @@ class Tile{
 	}
 
 	containsRange(chr, start, end, scale) {
-		if (this.scale!==scale){
-			console.log("scale:"+this.scale+"="+scale);
+		if (start<0){
+			start=0;
 		}
 		return this.scale.toFixed(3) === scale.toFixed(3) && start >= this.startBP && end <= this.endBP && chr === this.chr;
 	}

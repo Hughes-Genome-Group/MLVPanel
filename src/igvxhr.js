@@ -1,6 +1,43 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 Broad Institute
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+
 import {jszlib_inflate_buffer,arrayCopy} from "./vendor/inflate.js";
 
-//*****js/igvxhr.js***********
+
+let is_node=false;
+try{
+    navigator;
+}catch(e){
+    is_node=true;
+}
+
+if (!Zlib.Zlib){
+	Zlib.Zlib=Zlib;
+}
+
 const NONE = 0;
 const GZIP = 1;
 const BGZF = 2;
@@ -22,7 +59,7 @@ class igvxhr {
                 contentType = options.contentType,
                 mimeType = options.mimeType,
                 headers = options.headers,
-                isSafari = navigator.vendor.indexOf("Apple") == 0 && /\sSafari\//.test(navigator.userAgent),
+                isSafari = is_node?false:navigator.vendor.indexOf("Apple") == 0 && /\sSafari\//.test(navigator.userAgent),
                 withCredentials = options.withCredentials,
                 header_keys, key, value, i;
 
@@ -45,6 +82,7 @@ class igvxhr {
                 }
             }
             */
+
 
             xhr.open(method, url);
 
@@ -75,6 +113,7 @@ class igvxhr {
             if (withCredentials === true) {
                 xhr.withCredentials = true;
             }
+            xhr.timeout=30000;
 
             xhr.onload = function (event) {
                 // when the url points to a local file, the status is 0 but that is no error
@@ -84,15 +123,9 @@ class igvxhr {
                         handleError("ERROR: range-byte header was ignored for url: " + url);
                     }
                     else {
-                        fulfill(xhr.response, xhr);
-                        /*delete xhr.reponse;
-                        xhr.onload =null;
-                      xhr.onerror=null;
-                       xhr.ontimeout=null;
-                      xhr.onabort= null;
-                        delete xhr.responseText;
-                        delete xhr.responseXML;
-                        */
+                      
+                        fulfill(xhr.response,xhr);
+                     
                     }
                 }
                 else {
@@ -153,7 +186,7 @@ class igvxhr {
                 xhr.send(sendData);
                 
             } catch (e) {
-                console.log(e);
+                reject(e);
             }
 
 
@@ -290,7 +323,7 @@ class igvxhr {
         var plain, inflate;
 
         if (compression === GZIP) {
-            inflate = new Zlib.Gunzip(new Uint8Array(arraybuffer));
+            inflate = new Zlib.Zlib.Gunzip(new Uint8Array(arraybuffer));
             plain = inflate.decompress();
         }
         else if (compression === BGZF) {

@@ -1,11 +1,39 @@
-import {MLVTrack} from "./tracks.js"
+import {MLVTrack} from "./tracks.js";
+$.fn.extend({
+  dialogFix: function() {
+    function _getElementHeight(el){
+	let height= el.css("height");
+	if (!height){
+		return 0;
+	}
+	let a= parseInt(height.replace("px",""));
+	return a;
+	
+}
+    return this.each(function() {
+      $(this).parent().find(".ui-dialog-titlebar-close").css("font-size","0px")
+      $(this).on("dialogresize dialogresizestop",function(e,ui){
+
+    	  let th=$(this);
+    	  let pa= th.parent();
+	      let title_height =_getElementHeight(pa.find(".ui-dialog-titlebar"));
+	      let button_height = _getElementHeight(pa.find(".ui-dialog-buttonpane"));
+	       let pa_height=_getElementHeight(pa);  
+	       let h = (pa_height-title_height-button_height-10)+"px"   	   
+           th.css({width:"auto",height:h});  
+      });
+
+    });
+  }
+});
+
 
 class MLVTrackDialog{
     constructor(config,panel){
     
         this.config = MLVTrack.parseConfig(config);
         this.panel=panel;
-        this.div = $("<div>");
+        this.div = $("<div>").attr("class","mlv-track-dialog");
         this.id=MLVTrackDialog.id++;
         
         this.div.dialog({
@@ -24,7 +52,7 @@ class MLVTrackDialog{
         title: this.config.short_label,
         width:250
        
-        });
+        }).dialogFix();
 
         this.init();
      
@@ -112,15 +140,21 @@ class MLVTrackDialog{
                 }
                 let y =self.max_y_input.val();
                 y=parseFloat(y);
-                if (y>self.config.max_y){
-                    self.scale_slider.slider("option","max",y);
-                }
+                let range  = y - self.min_y_input.val();
+                self.scale_slider.slider("option","step",range/100);
+                self.scale_slider.slider("option","max",y);
                 self.scale_slider.slider("option","values",[self.config.min_y,y]);
                 self.config.max_y=y;
                 self._updatePanelScale();
 
                 
             }).appendTo(scale_div).width(40).css({"float":"right"}).val(self.config.max_y);
+            if (self.config.scale_link_to){
+            	let label = this.panel.tracks[self.config.scale_link_to].config.short_label;
+            	scale_div.find("label").text("Scale(linked to "+label+")");
+            	scale_div.find("input").attr("disabled",true);
+            	self.scale_slider.slider("disable");
+            }
 
 
             this.div.append("<hr>");
@@ -192,12 +226,12 @@ class MLVTrackDialog{
 
        
 
-    if (this.config.format==="feature"){
+    if (this.config.format==="feature" || this.config.type==="bam"){
 
     let feature_div=  $("<div>").append("<label>Height</label><br>");
     self.feature_height_slider=$("<div>").slider({
        max:40,
-       min:5,
+       min:3,
        slide:function(e,ui){
            self.config.featureHeight=ui.value;
            if (self.panel){
@@ -209,6 +243,8 @@ class MLVTrackDialog{
     self.feature_height_slider.slider("option","value",self.config.featureHeight);
     feature_div.append(self.feature_height_slider).appendTo(this.div);
     this.div.append("<hr>");
+    }
+    if (this.config.format==="feature"){
 
     let feature_display_div=  $("<div>").append("<label>Display</label><br>");
 
@@ -243,14 +279,17 @@ class MLVTrackDialog{
     })
     op_div.append(self.opacity_slider).appendTo(this.div);
     self.opacity_slider.slider("option","value",self.config.opacity);
+    let track = this.panel.tracks[this.config.track_id];
+    track.addExtraControls(this);
+
   
 
    let p = this.div.parent();
-    p.find(".ui-dialog-content").css("font-size","12px");
-    p.find(".ui-dialog-title").css("font-size","12px");
-    p.find(".ui-dialog-titlebar").css("padding",".2em 1em");
+   // p.find(".ui-dialog-content").css("font-size","12px");
+ //   p.find(".ui-dialog-title").css("font-size","12px");
+   // p.find(".ui-dialog-titlebar").css("padding",".2em 1em");
     //p.find(".t-d-div").css("margin","3px 0px");
-    p.find("label").css({"font-weight":"600","margin-right":"3px","margin-top":"4px"});
+   // p.find("label").css({"font-weight":"600","margin-right":"3px","margin-top":"4px"});
     //p.find("div").css("margin","3px");
 
         	

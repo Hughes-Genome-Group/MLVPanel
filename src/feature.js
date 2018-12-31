@@ -1,4 +1,29 @@
-//*****js/feature/featureSource.js**************
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 Broad Institute
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+
 import {Utils} from "./utils.js";
 import {igvxhr,unbgzf} from "./igvxhr.js";
 import {loadBamIndex} from "./bam.js";
@@ -112,10 +137,9 @@ class FeatureSource{
         return new Promise(function(fulfill,reject){
             self.getFileHeader().then(function(){
                 self._getFeatures(chr,start,end,force,data).then(function(features){
-                    console.log(end)
                     fulfill(features);
-                })
-            });
+                }).catch(reject)
+            }).catch(reject);
         });
         
     }
@@ -130,37 +154,104 @@ class FeatureSource{
      */
 
     _getFeatures(chr, bpStart, bpEnd,force,data) {
-        
+        if (bpStart===0){
+            bpStart=1;
+        }
         var self = this;
         self.time=Date.now();
         return new Promise(function (fulfill, reject) {
-
+            if (self.featureCache && chr !== self.featureCache.range.chr){
+                self.featureCache=null;
+            }
             var genomicInterval = new GenomicInterval(chr, bpStart, bpEnd),
                 featureCache = self.featureCache,
                 maxRows = self.config.maxRows || 500;
-            
-            if (featureCache && (featureCache.range === undefined || featureCache.range.containsRange(genomicInterval))) {
+           
+            let ranges_to_get=false;
+            if (!featureCache){
+                ranges_to_get={all:[bpStart,bpEnd]};
+            }
+            else{
+                if (featureCache.range !== undefined){
+                    ranges_to_get=featureCache.range.rangesToGet(genomicInterval)
+                }
+            }
+            if (!ranges_to_get) {
                 fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
 
             }
             else {
-                // TODO -- reuse cached features that overelap new region
-
-               /* if (self.sourceType === 'file' && (self.visibilityWindow === undefined || self.visibilityWindow <= 0)) {
-                    // Expand genomic interval to grab entire chromosome
-                    genomicInterval.start = 0;
-                    var chromosome =chr;
-                    genomicInterval.end = (chromosome === undefined ?  Number.MAX_VALUE : chromosome.bpLength);
-                }
-                */
+         
+             let promises=[];
+             let p_types=[];
+             for (let type in ranges_to_get){
+                    let range= ranges_to_get[type];
+                     promises.push(self.retrieveFeatures(chr, range[0], range[1],force,data));
+                     p_types.push([type,ranges_to_get[type]]);
+             }
+            
 
             
-                self.retrieveFeatures(chr, genomicInterval.start, genomicInterval.end,force,data).then(
+              Promise.all(promises).then(
 
-                    function (featureList) {
-                        if (featureList && typeof featureList.forEach === 'function') {  // Have result AND its an array type
+                    function (all_features) {
+                       
+                        let existing_features=[];
+                        if (self.featureCache){
+                            existing_features=self.featureCache.allFeatures();//featureCache.allFeatures(chr,self.featureCache.range.start,self.featureCache.range.end);
+                        }
+                        console.log("exisiting features:"+existing_features.length)
+                        let nd={};
+                        let new_range={};
+                        let index=0;
+                       
+                        for (let featureList of all_features){
+                            if (featureList === null){
+                                throw("Chromosome not recognized");
+                            }
+                            
+                            if (p_types[index][0]==="all"){
+                                new_range.start=p_types[index][1][0];
+                                new_range.end=p_types[index][1][1]
+                                if (featureList.length>0){
+                                   let st = featureList[0].start;
+                                   let end =featureList[featureList.length-1].end;
+                                   if (end>new_range.end){
+                                       new_range.end=end;
+                                   } 
+                                   if (st<new_range.start){
+                                       new_range.start=st;
+                                   }      
+                                }
+                               }
+                               if (p_types[index][0]==="left"){
+                                   new_range.start=p_types[index][1][0];
+                                     if (featureList.length>0){
+                                           let st = featureList[0].start;
+                                            if (st<new_range.start){
+                                                new_range.start=st;
+                                            }      
 
-                            var isIndexed =
+                                     }
+                               
+                              }
+                              if (p_types[index][0]==="right"){
+                                  new_range.end=p_types[index][1][1];
+                                  if (featureList.length>0){
+                                      let end =featureList[featureList.length-1].end;
+                                      if (end>new_range.end){
+                                        new_range.end=end;
+                                      } 
+                                          
+                                  } 
+                                }
+                            
+                            index++;
+
+                            console.log("new_features:"+featureList.length)
+                            if (featureList && typeof featureList.forEach === 'function') {  // Have result AND its an array type
+
+                                var isIndexed =
                                 self.reader.indexed ||
                                 self.config.sourceType === "ga4gh" ||
                                 self.config.sourceType === "immvar" ||
@@ -170,31 +261,69 @@ class FeatureSource{
 
                             // TODO -- COMBINE GFF FEATURES HERE
                             // if(self.isGFF) featureList = combineFeatures(featureList);
-                            if ("gtf" === self.config.format || "gff3" === self.config.format || "gff" === self.config.format) {
-                                featureList = (new igv.GFFHelper(self.config.format)).combineFeatures(featureList);
-                            }
+                                if ("gtf" === self.config.format || "gff3" === self.config.format || "gff" === self.config.format) {
+                                    featureList = (new igv.GFFHelper(self.config.format)).combineFeatures(featureList);
+                                }
+                                existing_features=existing_features.concat(featureList);
 
-                            self.featureCache = isIndexed ?
-                                new FeatureCache(featureList, genomicInterval) :
+                            }
+                        }
+
+            
+                        let existing_range = null;
+                        if (!self.featureCache){
+                            existing_range =genomicInterval;
+                        }
+                        else{
+                            existing_range=self.featureCache.range;
+                        }
+                        if (new_range.start){
+                             existing_range.start=new_range.start;
+                        }
+                        if (new_range.end){
+                             existing_range.end = new_range.end+1;
+                        }
+                       
+                       
+                        console.log(existing_range.start+":"+existing_range.end)
+
+
+                    
+
+
+                        self.featureCache = isIndexed ?
+                                new FeatureCache(existing_features, existing_range) :
                                 new FeatureCache(featureList);   // Note - replacing previous cache with new one
 
 
                             // Assign overlapping features to rows
-                            FeatureSource.packFeatures(featureList, maxRows);
+                            FeatureSource.packFeatures(existing_features, maxRows);
 
                             // If track is marked "searchable"< cache features by name -- use this with caution, memory intensive
                             if (self.config.searchable) {
-                                addFeaturesToDB(featureList);
+                                addFeaturesToDB(existing_features);
                             }
 
                             // Finally pass features for query interval to continuation
+                          /*  let alr ={};
+                            let f= self.featureCache.allFeatures();
+                            for (let i of f){
+                                if (alr[i.id]){
+                                    //console.log(i);
+                                    //console.log(alr[i.id]);
+                                }
+                                alr[i.id]=i;
+                            }
+                         */
+                        
                             fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
-                        }
-                        else {
-                            fulfill(null);
-                        }
+                      
+                        
+                      
 
-                    }).catch(reject);
+                    }).catch(function(error){
+                        reject(error);
+                    });
             }
         });
     }
@@ -273,11 +402,11 @@ class FeatureSource{
 }
 
 class BigBedFeatureSource extends FeatureSource{
-    constructor(config){
+    constructor(config,decode_function){
 		config.sourceType="gtex";
 		super(config);
 		this.header=true;
-		this.feature_source=new BWSource(config);
+		this.feature_source=new BWSource(config,decode_function);
 	}
 
 	retrieveFeatures(chr,bpStart,bpEnd,force,data){
@@ -497,7 +626,7 @@ class FeatureFileReader{
                         self.indexed = false;
                     }
                     fulfill(self.index);
-                });
+                }).catch(reject);
             }
             else {
                 fulfill(self.index);   // Is either already loaded, or there isn't one
@@ -549,9 +678,9 @@ class FeatureFileReader{
                             var header = self.header || {};
                             header.features = features;
                             fulfill(header);
-                        }).catch(reject);
+                        }).catch(error);
                     }
-                });
+                }).catch(reject);
             }
         });
 
@@ -1748,6 +1877,29 @@ class GenomicInterval{
         return this.chr === range.chr &&
             this.start <= range.start &&
             this.end >= range.end;
+    }
+    rangesToGet(range){
+        let needs_range=false;
+        let ranges={};
+        if (this.chr !== range.chr){
+            ranges.all=[range.start,range.end];
+            needs_range=true;
+        }
+        else{   
+            if (range.start<this.start){
+                ranges.left=[range.start,this.start];
+                needs_range=true;
+              
+            }
+            if (range.end>this.end){
+                ranges.right=[this.end,range.end];
+                needs_range=true;
+            }
+        }
+        if (!needs_range){
+            return false;
+        }
+        return ranges;
     }
 }
 

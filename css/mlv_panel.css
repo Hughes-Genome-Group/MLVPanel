@@ -1,0 +1,29 @@
+.mlv-track-dialog label {
+	font-weight:bold;
+	margin-bottom:2px;
+	margin-top:0px;
+}
+
+.mlv-track-dialog input[type=checkbox] {
+	height: 17px;
+	width: 17px;
+	 vertical-align: bottom;
+  position: relative;
+  margin-left:2px;
+  margin-bottom:2px;
+}
+
+.mlv-track-dialog span{
+	margin-right:4px;
+}
+
+.mlv-track-dialog .fas{
+	cursor:pointer;
+	font-size:16px;
+}
+
+.mlv-track-dialog hr {
+	margin-top:10px;
+	margin-bottom:2px;
+
+}
