@@ -146,7 +146,7 @@ class MLVTrack{
 
 		if (config.format==="wig"){
 			if (!config.scale){
-				config.scale="automatic";
+				config.scale="dynamic";
 			}
 			if (!config.min_y){
 				config.min_y=0;

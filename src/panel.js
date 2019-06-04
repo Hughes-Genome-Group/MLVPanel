@@ -427,8 +427,20 @@ class MLVPanel {
 
     getTracksHeight(){
     	let h =0;
-    	for (let t in this.tracks){
-			h+=this.tracks[t].config.height;
+    	let groups={}
+    	for (let tid of this.track_order){
+    		let track=  this.tracks[tid];
+    		let g = track.config.group;
+    		if (g){
+    			if (!groups[g]){
+    				h+=track.config.height;
+    				groups[g]=true;
+    			}
+
+    		}
+    		else{
+				h+=track.config.height;
+    		}
     	}
     	return h;
     }

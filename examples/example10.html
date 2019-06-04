@@ -1,41 +1,125 @@
 <!doctype html>
 <html>
 	<head>
-	    <!-- css files required -->
-		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
-		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
-		<link rel="stylesheet" href="../css/mlv_panel.css">
+		<style>
+			.track-div{
+				height:300px;
+				width:300px;
+				border:1px solid black;
+		
+			}
+			.container-div{
+				height:500px;
+				width:300px;
+				display:inline-block;
+			}
+			.text-div{
+				position:absolute;
+				top:310px;
+				width:300px;
+				white-space:normal;
+				padding:10px;
+				box-sizing:border-box;
+			}
+			h2{
+				margin-top:7px;
+				margin-bottom:7px;
+			}
+		</style>
   	</head>
   	<body>
-  		<!-- the div to hold the track -->
-		<div id="the-track" style="height:400px;width:500px;border:1px solid black;"> </div>
-		<!--legacy script hard to import with es6 -->
-     	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
-     	<script type = "module">
-    		import '../src/vendor/jquery.min.js';
-			import '../src/vendor/jquery-ui.min.js';
-			//import any modules required
-    		import {MLVPanel} from '../src/panel.js';
-    		//allow user interaction and have ruler track and legend
+  		<!-- the divs to hold the tracks -->
+  		<h2> Layout </h2>
+  		<div class='dsd'> View Source <a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example10.html">here</a></div>
+  		<div style="display:flex;justify-content:center;white-space:nowrap;position:relative;height:300px" >
+			<div  class="container-div">
+					<div class ="track-div"  id="default-layout"></div>
+					<div class="text-div">
+						Default settings , wigs take up full panel and
+						overlaid by features. Zoom out and the gene track will
+						expand as features are stacked pushing the feature 
+						track down.
+					</div>
+			 </div>
+			<div class="container-div">
+					<div  class ="track-div"  id="discrete-wigs"></div>
+					<div class="text-div">
+						By adding discrete:true to the wig configs,
+						they now take up their own space.
+					</div>
+			 </div>
+			 	<div class="container-div">
+					<div class="track-div" id="fixed-height-mode"></div>
+					<div class="text-div">
+						In fixed height mode, each track is discrete,except
+						the two wig tracks, which share the same group. The genes
+						track will no longer expand as the features stack, but 
+						will be clipped. 
+					</div>
+
+			 </div>
+		</div>
+
+
+     	<script src = "../dist/mlv_panel.js"></script>
+     	<script>
 			var panel_config={
-				div:"the-track",
+				div:"default-layout",
 				allow_user_drag:true,
 				allow_user_zoom:true,
-				legend:true,
 				ruler_track:true,
 				
 			}
-			//minimal config, only track urls given
+			var bw1_url = "https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw";
+			var bw2_url ="https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks2.bw";
+			var gene_url ="https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz";
+			var  bb_url ="https://lanceotron.molbiol.ox.ac.uk/tracks/examples/region.bb"
+
+			//minimal config, mainly default settings
 			var panel1 = new MLVPanel(
 				[
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",height:100,discrete:true,color:"#6495ED",track_id:"peaks",opacity:0.5,group:"g1",scale:"dynamic"},
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks2.bw",height:100,discrete:true,color:"#00FFFF",opacity:0.5,group:"g1",scale_link_to:"peaks"},
-					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+					{url:bw1_url,color:"#6495ED",track_id:"peaks",opacity:0.5},
+					{url:bw2_url,color:"#00FFFF",opacity:0.5,scale_link_to:"peaks"},
+					{url:gene_url,displayMode:"EXPANDED"},
+					{url:bb_url,color:"#FF7F50"}
 				],
 				panel_config
 			);
+
+			panel_config.div = "discrete-wigs"
+
+			var panel2 = new MLVPanel(
+			[
+					{url:bw1_url,color:"#6495ED",discrete:true,height:100,track_id:"peaks",opacity:0.5,scale:"dynamic"},
+					{url:bw2_url,color:"#00FFFF",
+						discrete:true,height:100,opacity:0.5,scale:"dynamic"},
+					{url:gene_url,
+						displayMode:"EXPANDED"},
+					{url:bb_url,color:"#FF7F50"}
+				],
+				panel_config
+			);
+			panel_config.div="fixed-height-mode";
+			panel_config.fixed_height_mode=true;
+				var panel3 = new MLVPanel(
+			[
+					{url:bw1_url,color:"#6495ED",
+						group:"g1",height:150,track_id:"peaks",opacity:0.5,scale:"dynamic"},
+					{url:bw2_url,color:"#00FFFF",
+						group:"g1",height:100,opacity:0.5,scale_link_to:"peaks"},
+					{url:gene_url,
+						displayMode:"EXPANDED",height:60},
+					{url:bb_url,color:"#FF7F50",height:30}
+				],
+				panel_config
+			);
+
+
+
 			//go to a genomic position
-			panel1.update("chr19",470000,510000);	
+			panel1.update("chr19",470000,510000);
+			panel2.update("chr19",470000,510000);
+			panel3.update("chr19",470000,510000);	
 		</script>
   	</body>
 </html>
