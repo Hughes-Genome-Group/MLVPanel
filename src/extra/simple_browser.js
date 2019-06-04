@@ -1,6 +1,149 @@
 import {MLVPanel} from "../panel.js";
+import {AddTrackDialog} from "../track_dialog.js";
 
-class SimpleBrowser{
+class BaseBrowser{
+
+	constructor(parent_div,config){
+		this.div = $("#"+parent_div).css({"padding":"2px","overflow":"hidden"});
+		this.listeners= {};
+		this.width=this.div.width();
+		if (config.tracks_proxy){
+			this.tracks_proxy=config.tracks_proxy;
+		}
+	
+	}
+
+	addControls(control_config){
+		let div =$("<div>").attr("id","mlv-iv-control-panel").appendTo(this.div);
+		this.control_panel = new BrowserControls("mlv-iv-control-panel",this,control_config);
+		let new_div=$("<div>").css({"height":"calc(100% - 30px)","width":"calc(100% - 5px)","position":"absolute","top":"30px"}).appendTo(this.div);
+		this.div=new_div;
+	}
+
+	addToMenu(element){
+		this.control_panel.container.append(element);
+	}
+
+	replaceWithProxy(url){
+		let tp = this.tracks_proxy;
+		if (!tp){
+			return url;
+		}
+	
+		for (let name in tp){
+			if (url.includes(name)){
+				return url.replace(name,tp[name])
+			}	
+		}
+		return url;	
+
+	}
+
+
+
+}
+
+class SinglePanelBrowser extends BaseBrowser{
+
+	constructor(parent_div,track_config,config){
+		if (!config){
+			config={};
+		}
+
+		super(parent_div,config);
+
+		this.panel = new MLVPanel(
+			track_config,
+			{
+				allow_user_zoom:true,
+				allow_user_drag:true,
+				fixed_height_mode:true,
+			}
+
+		)
+		if (config.add_controls){
+			this.addControls();
+		}
+
+		this.div.append(this.panel.getDiv());
+		let self = this;
+		$(window).on("resize",function(e){
+			if (!e.target.open){
+				return;
+			}
+			self.setSize();
+		});
+		if (config.add_ruler){
+			this.panel.addRulerTrack()
+		}
+		this.panel.addLegend();
+		this.setSize();
+	
+
+
+	}
+
+
+
+
+	setSize(){
+		this.panel.setWidth(this.div.width());
+		this.panel.setHeight(this.div.height());
+		if (this.panel.chr){
+			this.panel.update();
+		}
+	}
+
+	zoom(amount){
+		let range = this.panel.end-this.panel.start;
+		let middle =this.panel.start+range/2;
+		let new_range =(range/amount);
+		let st = Math.round(middle-new_range/2);
+		let en = Math.round(middle+new_range/2);
+		this.panel.update(this.panel.chr,st,en);
+	}
+
+	addTrackFromBrowser(config,update){
+		config.url = this.replaceWithProxy(config.url);
+		config.allow_user_remove=true;
+		this.panel.addTrack(config);
+		if (update){
+			this.panel.repaint(true,true);
+		}
+	}
+
+	goToPosition(chr,start,end){
+		this.panel.update(chr,start,end);
+	}
+
+	getPosition(){
+		return {
+				chr:this.panel.chr,
+				start:Math.round(this.panel.start),
+				end:Math.round(this.panel.end)
+			};
+	}
+
+	addListener(type,func){
+
+		this.panel.addListener(type,func);
+	}
+
+	setState(state){
+		this.panel.removeAllTracks();
+		for (let conf of state.state){
+			this.panel.addTrack(conf);
+		}
+		this.panel.update(state.position.chr,state.position.start,state.position.end);
+	}
+
+
+
+
+}
+
+
+class SimpleBrowser extends BaseBrowser{
 	 /**
      * Creates a filter panel
      * @param {string } parent_div- The id of the div element to house the browser
@@ -14,15 +157,14 @@ class SimpleBrowser{
 		if (!config){
 			config={};
 		}
-		if (config.limit_chromosome){
-			this.limit_chromosome=config.limit_chromosome;
-		}
-		this.div = $("#"+parent_div).css({"padding":"2px","overflow":"hidden"});
-		this.listeners= {};
+
+		super(parent_div,config);
+	
 		if (config.add_controls){
-			this.addControls();
+			this.addControls({limit_chromosome:config.limit_chromosome});
 		}
-		this.width=this.div.width();
+		
+		
 		this.panels={};
 		this.chr="";
 		this.start=1;
@@ -44,14 +186,18 @@ class SimpleBrowser{
 	
 	_addHandlers(){
 		let self = this;
-		this.div.on('mousewheel.zoom  mouse.zoom', function(event) {
+		this.div.on('mousewheel.zoom  mouse.zoom DOMMouseScroll', function(event) {
 			event.stopPropagation();
 			event.preventDefault();
-    	 	if (self._isLoading() || (self.bp_per_pixel<0.05 && event.originalEvent.deltaY>0)){
+			let deltaY= event.originalEvent.deltaY;
+			if (deltaY === undefined){
+				deltaY=event.originalEvent.detail
+			}
+    	 	if (self._isLoading() || (self.bp_per_pixel<0.05 && deltaY>0)){
     	 		return;
     	 	}
-    	 	let canvasCoords = self._translateCoOrds(event);
-            let factor = event.originalEvent.deltaY<0?2:0.5;
+    	 	let canvasCoords = self._translateCoOrds(event.originalEvent);
+            let factor = deltaY<0?2:0.5;
             let mbp= (self.start+ canvasCoords.x * self.bp_per_pixel)
             let new_length = Math.round((self.end-self.start)*factor);
             let new_start = Math.round(mbp-((canvasCoords.x/self.width)*new_length));
@@ -131,11 +277,37 @@ class SimpleBrowser{
 		}
 	}
 	
-	addControls(){
-		let div =$("<div>").attr("id","mlv-iv-control-panel").appendTo(this.div);
-		this.control_panel = new BrowserControls("mlv-iv-control-panel",this,this.limit_chromosome);
-		let new_div=$("<div>").css({"height":"calc(100% - 30px)","width":"calc(100% - 5px)","position":"absolute","top":"30px"}).appendTo(this.div);
-		this.div=new_div;
+	getState(){
+		let state =[];
+		for (let id in this.panels){
+			let p = this.panels[id];
+			delete p.pan_config.update;
+			state.push({
+				config:p.getAllTrackConfigs(),
+				pan_config:p.pan_config,
+				top:p.getDiv().css("top").replace("px",""),
+				height:p.getDiv().css("height").replace("px",""),
+				id:id
+			})
+
+		}
+		return state;
+	}
+
+	removePanel(id){
+		let pan = this.panels[id];
+		pan.getDiv().remove();
+		delete this.panels[id];
+	}
+
+	setState(state){
+		let ids = Object.keys(this.panels);
+		for (let id of ids){
+			this.removePanel(id);
+		}
+		for (let item of state){
+			this.addPanel(item.id,item.config,item.top,item.height,item.pan_config)
+		}
 	}
 	
 
@@ -146,7 +318,7 @@ class SimpleBrowser{
      * @param {number} top - The position of the top of the panel(in pixels)
      * @param {number} height- The height of the panel (in pixels)
      */
-	addPanel(id,track_config,top,height,is_ruler){
+	addPanel(id,track_config,top,height,pan_config){
 		let ruler=false;
 		if (id==="ruler"){
     		track_config=[];
@@ -155,15 +327,29 @@ class SimpleBrowser{
     		height=40;
     	}
 		let self = this;
+		if (!pan_config){
+			pan_config={};
+		}
     	let panel_config={
 			height:height,
 			width:this.div.width(),
 			allow_user_move:"vertical",
-			allow_user_resize:"vertical"
+			allow_user_resize:"vertical",
+
     	}
+    	if (pan_config.allow_user_close){
+    		panel_config.allow_user_close=true;
+    	}
+
     	
     	
     	let p = new MLVPanel(track_config,panel_config);
+
+    	if (pan_config.allow_user_close){
+    		p.addListener("panel_closed",function(){
+    			delete self.panels[id]
+    		})
+    	}
     	if (ruler){
     		p.addRulerTrack();
     		p.allowUserRangeSelection();
@@ -176,17 +362,29 @@ class SimpleBrowser{
     		p.addLegend();
     	}
     	this.panels[id]=p;
+    	p.pan_config=pan_config;
     	//set panel position and add it to DOM
     	let div = p.getDiv();
-    	div.css({top:top+"px",left:"0px"}).width(this.width).appendTo(this.div);
+    	div.css({top:top+"px",left:"0px"}).width(this.width);
+    	if (pan_config.move_to_back){
+    		this.div.prepend(div)
+    	}
+    	else{
+    		this.div.append(div);
+    	}
     	div.draggable( "option", "containment", "parent" );
     	$(".track-handle").removeClass("fa-arrows-alt-v").addClass("fa-arrows-alt");
     	if (!ruler){
     		div.append($("<i class='fas fa-arrows-alt-v'></i>").css({"position":"absolute","bottom":"-5px","right":"7px","font-size":"12px","opacity":"0.8"}));
     	}
+    	if (pan_config.update){
+    		p.update(this.chr,this.start,this.end)
+    	}
     	
     	
 	}
+
+
 	
 	_positionChanged(chr,start,end){
 		this.chr=chr;
@@ -202,10 +400,12 @@ class SimpleBrowser{
 	getPosition(){
 		return {
 				chr:this.chr,
-				start:this.start,
-				end:this.end
+				start:Math.round(this.start),
+				end:Math.round(this.end)
 			};
 	}
+
+
 	setWidth(){
 		this.width = this.div.width();
 		for (let p_id in this.panels){
@@ -240,18 +440,33 @@ class SimpleBrowser{
 	addListener(type,func){
 		this.listeners[type]=func;
 	}
+
+	addTrackFromBrowser(config,update){
+		config.url = this.replaceWithProxy(config.url);
+		let id ="pan_"+this.pan_id++;
+		this.addPanel(id,[config],0,200,
+			{allow_user_close:true,move_to_back:true,update:update}
+		);
+	}
 }
 
 
 
+
+
+
 class BrowserControls{
-	constructor(element_id,browser,limit_chromosome){
+	constructor(element_id,browser,config){
 		this.browser=browser;
+		if (!config){
+			config={};
+		}
 		this.limit_chromosome=false;
-		if (limit_chromosome){
+		if (config.limit_chromosome){
 			this.limit_chromosome=limit_chromosome;
 		}
-		this.container=$("#"+element_id).css({"padding-left":"20px"});
+		this.pan_id=1;
+		this.container=$("#"+element_id).css({"padding-left":"20px"}).addClass("browser-menu-panel");
 		this.container.append("<label>zoom</label>")
 		this.zoom_level_input=$("<input>").val("2").width(15).appendTo(this.container);
 		this.zoom_level_input.spinner({step:1});
@@ -278,14 +493,28 @@ class BrowserControls{
 				self.browser.goToPosition(loc.chr,loc.start,loc.end)
 			}	
 		});
-		this.browser.addListener("view_changed",function(location){
+
+		let add_track =$("<button>").html("<i class = 'fa fa-plus'></i>Add Track")
+			.attr("class","btn btn-sm btn-secondary")
+			.css("margin-left","3px")
+			.click(function(e){
+				new AddTrackDialog(function(config){
+					self.browser.addTrackFromBrowser(config,true);
+				})
+			})
+			.appendTo(this.container);
+		this.browser.addListener("view_changed",function(location,start,end){
 			if (self.limit_chromosome){
 				location =  location.split(":")[1];
+			}
+			if (start){
+				location=location+":"+start+"-"+end;
 			}	
 			self.location_input.val(location);
 		})
 
 	}
+
 
 	calculatePosition(text){
 		text=text.replace(/,/g,"");
@@ -309,4 +538,4 @@ class BrowserControls{
 
 
 
-export {SimpleBrowser,BrowserControls};
+export {SimpleBrowser,BrowserControls,SinglePanelBrowser};

@@ -4,6 +4,7 @@
 	    <!-- css files required -->
 		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
 		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
+		<link rel="stylesheet" href="../css/mlv_panel.css">
   	</head>
   	<body>
   		<!-- the div to hold the track -->
@@ -15,11 +16,14 @@
 			import '../src/vendor/jquery-ui.min.js';
 			//import any modules required
     		import {MLVPanel} from '../src/panel.js';
-    		//allow user interaction
+    		//allow user interaction and have ruler track and legend
 			var panel_config={
 				div:"the-track",
 				allow_user_drag:true,
 				allow_user_zoom:true,
+				legend:true,
+				ruler_track:true,
+				
 			}
 			//minimal config, only track urls given
 			var panel1 = new MLVPanel(
@@ -29,10 +33,6 @@
 				],
 				panel_config
 			);
-			//could also use {type:"track"} in config
-			panel1.addRulerTrack();
-			//allow user to change track attributes
-			panel1.addLegend();
 			//go to a genomic position
 			panel1.update("chr16",100000,200000);	
 		</script>

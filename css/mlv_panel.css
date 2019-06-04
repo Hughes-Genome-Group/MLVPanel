@@ -1,6 +1,34 @@
+.mlv-track-legend{
+	position:absolute !important;
+	top:0px;
+	left:calc(100% - 155px);
+	border:0.5px solid black;
+	font-size:14px;
+	z-index:90;
+}
+
+
+.mlv-track-legend span{
+	display:inline-block;
+	cursor:pointer;
+	margin-right:2px;
+}
+
+.mlv-track-legend li{
+	white-space:nowrap;
+}
+
+.mlv-track-legend-text {
+	white-space:nowrap;
+	overflow:hidden;
+	text-overflow:ellipsis;
+	width: 100px;
+}
+
+
 .mlv-track-dialog label {
 	font-weight:bold;
-	margin-bottom:2px;
+	margin-bottom:4px;
 	margin-top:0px;
 }
 
@@ -25,5 +53,20 @@
 .mlv-track-dialog hr {
 	margin-top:10px;
 	margin-bottom:2px;
+
+}
+
+.add-track-dialog label{
+	display:block;
+	font-weight:bold;
+	margin-top:5px;
+
+}
+
+.browser-menu-panel button{
+	padding-top: 2px;
+    padding-bottom: 2px;
+    margin-left: 2px;
+    margin-right: 2px;
 
 }

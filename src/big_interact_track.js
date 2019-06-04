@@ -30,7 +30,7 @@ class BigInteractTrack extends MLVBedTrack{
 				if (gl>f.sourceStart-tolerance && gl<f.sourceEnd+tolerance){
 					console.log("sddddddd");
 					$("body").css("cursor","pointer");
-					return;
+					return f;
 				}
 			}
 		}
@@ -40,7 +40,7 @@ class BigInteractTrack extends MLVBedTrack{
 				if (gl>middle-tolerance && gl<middle+tolerance){
 					console.log("poooo[]");
 				    $("body").css("cursor","pointer");
-					return;
+					return f;
 				}
 			}
 		}

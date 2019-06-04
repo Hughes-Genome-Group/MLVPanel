@@ -201,16 +201,15 @@ class FeatureSource{
                             existing_features=self.featureCache.allFeatures();//featureCache.allFeatures(chr,self.featureCache.range.start,self.featureCache.range.end);
                         }
                         console.log("exisiting features:"+existing_features.length)
-                        let nd={};
-                        let new_range={};
+                    
                         let index=0;
                        
                         for (let featureList of all_features){
                             if (featureList === null){
-                                throw("Chromosome not recognized");
+                                featureList=[];
                             }
                             
-                            if (p_types[index][0]==="all"){
+                          /*  if (p_types[index][0]==="all"){
                                 new_range.start=p_types[index][1][0];
                                 new_range.end=p_types[index][1][1]
                                 if (featureList.length>0){
@@ -223,28 +222,45 @@ class FeatureSource{
                                        new_range.start=st;
                                    }      
                                 }
-                               }
+                               */
                                if (p_types[index][0]==="left"){
-                                   new_range.start=p_types[index][1][0];
-                                     if (featureList.length>0){
-                                           let st = featureList[0].start;
-                                            if (st<new_range.start){
-                                                new_range.start=st;
-                                            }      
+                                   let end = p_types[index][1][1];
+                                   
+                                   //remove any already retieved
+                                  
+                                   let splice=0;
+                                   for (let n=featureList.length-1;n>=0;n--){
+                                       
+                                        if (featureList[n].end< end){
+                                            break;
+                                        }
+                                        splice++;
+                                   }
+                                   if (splice!==0){
+                                       featureList.splice(-splice)
+                                   }
+                                   console.log(":::!!"+featureList.length)
+                                   
 
-                                     }
+                                     
                                
                               }
                               if (p_types[index][0]==="right"){
-                                  new_range.end=p_types[index][1][1];
-                                  if (featureList.length>0){
-                                      let end =featureList[featureList.length-1].end;
-                                      if (end>new_range.end){
-                                        new_range.end=end;
-                                      } 
-                                          
-                                  } 
-                                }
+                                  let start=p_types[index][1][0];
+                                
+                                   
+                                   //remove any already retieved
+                                   let n=0
+                                   for (n=0;n<featureList.length;n++){
+                                       
+                                        if (featureList[n].start> start){
+                                            break;
+                                        }
+                                   }
+                                   if (n!==0){
+                                       featureList.splice(0,n)
+                                   }
+                             }
                             
                             index++;
 
@@ -265,34 +281,18 @@ class FeatureSource{
                                     featureList = (new igv.GFFHelper(self.config.format)).combineFeatures(featureList);
                                 }
                                 existing_features=existing_features.concat(featureList);
+                                console.log("all features:"+existing_features.length)
 
                             }
                         }
 
             
-                        let existing_range = null;
-                        if (!self.featureCache){
-                            existing_range =genomicInterval;
-                        }
-                        else{
-                            existing_range=self.featureCache.range;
-                        }
-                        if (new_range.start){
-                             existing_range.start=new_range.start;
-                        }
-                        if (new_range.end){
-                             existing_range.end = new_range.end+1;
-                        }
-                       
-                       
-                        console.log(existing_range.start+":"+existing_range.end)
-
 
                     
-
+                        let gi = self.featureCache?self.featureCache.range:genomicInterval;
 
                         self.featureCache = isIndexed ?
-                                new FeatureCache(existing_features, existing_range) :
+                                new FeatureCache(existing_features, gi) :
                                 new FeatureCache(featureList);   // Note - replacing previous cache with new one
 
 
@@ -1884,16 +1884,21 @@ class GenomicInterval{
         if (this.chr !== range.chr){
             ranges.all=[range.start,range.end];
             needs_range=true;
+            this.start=range.start;
+            this.end=range.end;
+
         }
         else{   
             if (range.start<this.start){
                 ranges.left=[range.start,this.start];
                 needs_range=true;
+                this.start=range.start;
               
             }
             if (range.end>this.end){
                 ranges.right=[this.end,range.end];
                 needs_range=true;
+                this.end=range.end;
             }
         }
         if (!needs_range){

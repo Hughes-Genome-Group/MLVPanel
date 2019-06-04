@@ -37,7 +37,7 @@
 			//minimal config, only track urls given
 			var main_panel = new MLVPanel(
 				[
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",color:"#8e0000",discrete:true,height:100},
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",color:"#8e0000",discrete:true,height:100},
 					
 				],
 				main_panel_config
@@ -46,7 +46,7 @@
 			
 			var zoom_panel = new MLVPanel(
 				[
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",color:"#8e0000",scale:"dynamic"},
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",color:"#8e0000",scale:"dynamic"},
 					//also show expanded genes
 					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz",displayMode:"EXPANDED"}
 				],
@@ -60,7 +60,7 @@
 				zoom_panel.update(chr,st,en);
 			});
 
-			main_panel.update("chr16",100000,200000);	
+			main_panel.update("chr16",500000,750000);	
 		</script>
  	 </body>
 </html>

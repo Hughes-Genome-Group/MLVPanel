@@ -43,6 +43,11 @@ class MLVPanel {
 		if (!config){
 			config={};
 		}
+		this.fixed_height_mode=false;
+		if (config.fixed_height_mode){
+			this.fixed_height_mode=true;
+		}
+
 
 		this.show_scale=true;
 		if (config.show_scale){
@@ -70,6 +75,9 @@ class MLVPanel {
 		this.tracks={}
 		this.track_order=[];
 		for (let t_config of tracks){
+			if (this.fixed_height_mode){
+    			t_config.discrete=true;
+    		}
 			let track=MLVTrack.getTrack(t_config);
 			this.tracks[track.config.track_id]=track;
 			this.track_order.push(track.config.track_id)
@@ -114,6 +122,7 @@ class MLVPanel {
        	//listeners
 		this.listeners={
        		"panel_empty":new Map(),
+       		"panel_closed":new Map(),
        		"track_added":new Map(),
        		"track_removed":new Map(),
        		"view_changed":new Map(),
@@ -146,8 +155,26 @@ class MLVPanel {
        	if (config.allow_user_drop){
        		this.allowUserDrop();
        	}
+
+       	if(config.ruler_track){
+       		this.addRulerTrack();
+       	}
+       	if(config.legend){
+       		this.addLegend();
+       	}
        
        	this.retries=0;
+       	this.yOffset=0;
+    }
+
+    _parseConfig(config){
+    	//check the tracks have the right settings
+    	if (this.fixed_height_mode){
+    		config.discrete=true;
+    		if (!config.height){
+    			config.height=150;
+    		}
+    	}
     }
 
     addScaleCanvas(height){
@@ -247,13 +274,16 @@ class MLVPanel {
 	*/
     addTrack(config){
     	let track=MLVTrack.getTrack(config);
-		this.tracks[config.track_id]=track;
-		this.track_order.push(config.track_id);
+    	if (this.fixed_height_mode){
+    		track.config.discrete=true;
+    	}
+		this.tracks[track.config.track_id]=track;
+		this.track_order.push(track.config.track_id);
 		this._tracksChanged();
 		if (this.legend){
-    		this.legend.addTrack(config);
+    		this.legend.addTrack(track.config);
     	}
-		this._callListeners("track_added",config);
+		this._callListeners("track_added",track.config);
     }
     
     _callListeners(type,config){
@@ -261,14 +291,24 @@ class MLVPanel {
               this.listeners[type][l_id](config);
           }
     }
+
+    removeAllTracks(){
+    	let dup_array = this.track_order.slice();
+    	for (let id of dup_array){
+    		this.removeTrack(id,true)
+    	}
+
+    }
     
 	 /**
 	* Removes a listener to the panel
 	* @param {object} config - The config of the track to add 
 	*/
-    removeTrack(track_id){
+    removeTrack(track_id,not_repaint){
     	this.track_order = this.track_order.filter(e => e !== track_id);
-    	this.repaint(true,true);
+    	if (!not_repaint){
+    		this.repaint(true,true);
+    	}
     	if (this.legend){
     		this.legend.removeTrack(track_id);
     	}
@@ -286,6 +326,15 @@ class MLVPanel {
     getTrackConfig(track_id){
     	let track = this.tracks[track_id];
     	return track.getConfig();
+    }
+
+
+    getAllTrackConfigs(){
+    	let configs=[];
+    	for (let id of this.track_order){
+			configs.push(this.tracks[id].getConfig());
+    	}
+    	return configs;
     }
     
     setTrackAttribute(track_id,key,value){
@@ -376,6 +425,14 @@ class MLVPanel {
        
     };
 
+    getTracksHeight(){
+    	let h =0;
+    	for (let t in this.tracks){
+			h+=this.tracks[t].config.height;
+    	}
+    	return h;
+    }
+
 
     getAllFeatures(bpStart, bpEnd,force,data) {
         let promises = [];
@@ -419,7 +476,7 @@ class MLVPanel {
             this.force_redraw=false;
             this.paintImage();
             if (!self.call_update_listener){
-            	self.listeners.view_changed.forEach((func)=>{func(self.chr,self.start,self.end)});
+            	self.listeners.view_changed.forEach((func)=>{func(self.chr,parseInt(self.start),parseInt(self.end))});
             }
             self.call_update_listener=false;
        
@@ -458,8 +515,14 @@ class MLVPanel {
                  
                         var buffer = document.createElement('canvas');
                         buffer.width = pixelWidth;
-                        buffer.height = self.canvas.height;
+                        buffer.height = self.fixed_height_mode?self.getTracksHeight():self.canvas.height;
                         ctx = buffer.getContext('2d');
+                        if (self.show_scale){
+        					self.scale_buffer= document.createElement('canvas');
+        					self.scale_buffer.width = 200;
+        					self.scale_buffer.height = buffer.height;
+        					self.scale_buffer_ctx=self.scale_buffer.getContext("2d");
+                        }
                    
                         var options ={
                              context: ctx,
@@ -477,20 +540,40 @@ class MLVPanel {
                         	if (group){
                         		if (!self.groups[group]){
                         			self.groups[group]={top:top,height:track.config.height}
+                        			//first time increase top
+                        			top+=track.config.height;
                         		}
                         		options.top=self.groups[group].top;
                         		options.height=self.groups[group].height;
 
                         	}
                         	else{
-                        		options.top =top
+                        		options.top =top;
                         	}
-                            let offset=track.drawFeatures(options);
-                         	  if (offset){
-                         	  	top=offset;
+                        	
+                        	let disc =   self.fixed_height_mode || track.config.discrete || group;
+                        	if (disc){
+                        		let h=group?options.height:track.config.height;
+                        		ctx.save();
+								ctx.rect(0,options.top,options.pixelWidth,h);
+								ctx.clip();
+								ctx.beginPath();
+                        	}
+                            let offset= track.drawFeatures(options);
+                            
+                            if (disc ){
+                            	ctx.restore()
+                            	if (!group){
+                         			top+=track.config.height;
+                            	}
                             }
+                            else if (offset){
+                            	top=offset;
+                            }
+                            
                             if (self.show_scale){
-                            	track.drawScale(options.pixelHeight,self.scale_ctx)
+
+                            	track.drawScale(options.pixelHeight,self.scale_buffer_ctx);
                             }
                                       
                         }
@@ -509,7 +592,7 @@ class MLVPanel {
                         self.tile = new Tile(chr, bpStart, bpEnd, self.bpPerPixel, buffer);
                         self.paintImage();
                         if (!self.call_update_listener){
-                        	self.listeners.view_changed.forEach((func)=>{func(self.chr,self.start,self.end)});
+                        	self.listeners.view_changed.forEach((func)=>{func(self.chr,parseInt(self.start),parseInt(self.end))});
                         }
                         self.call_update_listener=false;
                     
@@ -561,10 +644,14 @@ class MLVPanel {
     paintImage() {
 
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        if (this.show_scale){
+        	this.scale_ctx.clearRect(0, 0,100, this.canvas.height);
+        	this.scale_ctx.drawImage(this.scale_buffer,0,this.yOffset)
+        }
 
         if (this.tile) {
             this.xOffset = Math.round((this.tile.startBP - this.start)/this.bpPerPixel);
-            this.ctx.drawImage(this.tile.image, this.xOffset, 0);
+            this.ctx.drawImage(this.tile.image, this.xOffset, this.yOffset);
             this.ctx.save();
             this.ctx.restore();
         }
@@ -657,6 +744,7 @@ class MLVPanel {
             self.isMouseDown = true;
             self.start_dragging=true;
             self.lastMouseX = canvasCoords.x;
+            self.lastMouseY= canvasCoords.y;
             self.mouseDownX = self.lastMouseX;
 
         })
@@ -667,9 +755,22 @@ class MLVPanel {
                 var bp_diff=self.bpPerPixel*diff;
                 self.start-=bp_diff;
                 self.end-=bp_diff;
+                let dd = self.canvas.height-self.tile.image.height;
+                let y_diff=0;
+                if (dd<0 || self.yOffset !==0){
+                	let y_diff=  canvasCoords.y-self.lastMouseY;
+                	self.yOffset+=y_diff;
+                	if (self.yOffset>0){
+                		self.yOffset=0;
+                	}
+                	else if (self.yOffset<dd){
+						self.yOffset=dd;
+                	}
+                }
                 self.repaint();
                 self.lastMouseX=canvasCoords.x;
-                if (self.start_dragging && diff>5){
+                self.lastMouseY=canvasCoords.y;
+                if (self.start_dragging && (diff>5 || y_diff>5)){
                 	self.is_dragging=true;
                 	self.start_dragging=false;
                 }
@@ -686,17 +787,28 @@ class MLVPanel {
     	this.trackDiv.off("mousedown.draghandler mousemove.draghandler mouseup.draghandler");
     }
 
+    _getCoords(e){
+    	 let x = e.pageX - $(this.canvas).offset().left;
+         let y = e.pageY - $(this.canvas).offset().top;
+         return {x,y};
+    	
+    }
+
 
     allowUserZoom(){
     	let self = this;
-    	this.trackDiv.on('mousewheel.zoom  mouse.zoom', function(event) {
-    	 	if (self.loading || (self.bpPerPixel<0.05 && event.originalEvent.deltaY>0)){
+    	this.trackDiv.on('mousewheel.zoom  mouse.zoom DOMMouseScroll', function(event) {
+			let deltaY= event.originalEvent.deltaY;
+			if (deltaY === undefined){
+				deltaY=event.originalEvent.detail
+			}
+    	 	if (self.loading || (self.bpPerPixel<0.05 && deltaY>0)){
     	 		return;
     	 	}
     	 	
    
-    	 	let canvasCoords = Utils.translateMouseCoordinates(event, self.canvas);
-            let factor = event.originalEvent.deltaY<0?2:0.5;
+    	 	let canvasCoords = self._getCoords(event.originalEvent);
+            let factor = deltaY<0?2:0.5;
             let mbp= (self.start+ canvasCoords.x * self.bpPerPixel)
             let new_length = (self.end-self.start)*factor;
             let new_start = mbp-((canvasCoords.x/self.canvas.width)*new_length);
@@ -834,6 +946,7 @@ class MLVPanel {
 
      getFeatureAt(e){
     	 let co = Utils.translateMouseCoordinates(e, this.canvas);
+    	 co.y+=this.yOffset;
     	 let gl = Math.round(this.start+(co.x*this.bpPerPixel));
     	 for (let t in this.tracks){
     	 	let track = this.tracks[t];
@@ -900,8 +1013,12 @@ class MLVPanel {
 
     allowUserClose(){
 		let div = this.trackDiv;
-		let icon=$("<span class='fas fa-times'></span>").css({"cursor":"not-allowed"})
-				.click(()=>{div.remove()})
+		let self =this;
+		let icon=$("<span class='fas fa-times'></span>")
+				.click(()=>{
+					  self.listeners.panel_closed.forEach((func)=>{func(self)});
+						div.remove()
+				});
 		div.find(".panel-icon-div").append(icon);
     }
 
@@ -933,6 +1050,8 @@ class MLVPanel {
         buffer.width = self.tile.image.width;
         buffer.height = self.tile.image.height;
         var ctx = buffer.getContext('2d');
+
+      
 
         self.track.draw({
             features: features,

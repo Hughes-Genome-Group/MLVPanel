@@ -1,0 +1,39 @@
+{
+	"tracks":[
+           {
+			"type":"ruler"
+		},     
+		{
+			"url":"http://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw",
+			"track_id":"peaks",
+			"color":"#006400",
+			"scale":"automatic",
+			"height":150,
+			"group":"h1",
+			"short_label":"Peaks",
+			"discrete":true,
+			"opacity":0.4
+		},
+    		{
+			"url":"http://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks2.bw",
+    			"color":"#00008B",
+			"scale_link_to":"peaks",
+			"height":150,
+			"group":"h1",
+			"short_label":"Smoothing",
+			"discrete":true,
+			"opacity":0.4
+		}
+  
+    	],
+  	"config":{
+		"images":[
+			{"loc":["chr19",470000 ,510000],"stub":"test1"}
+		],
+		"width":400,
+		"height":300,
+      	"type":"svg",
+      	"folder":".",
+      	"fixed_height_mode":true
+	}
+}

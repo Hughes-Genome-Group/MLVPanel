@@ -30,32 +30,21 @@ $.fn.extend({
 
 class MLVTrackDialog{
     constructor(config,panel){
-    
         this.config = MLVTrack.parseConfig(config);
         this.panel=panel;
         this.div = $("<div>").attr("class","mlv-track-dialog");
         this.id=MLVTrackDialog.id++;
         
         this.div.dialog({
-        autoOpen: true, 
-           /* buttons: {
-                OK: function() {
-                    //let c = self.track_controls.getAllDetails()[0];
-                    //self.update(c);
-                    $(this).dialog("close");
-                   
-                }
-            },*/
+       		autoOpen: true, 
             close:function(){
                 $(this).dialog('destroy').remove();
             },
-        title: this.config.short_label,
-        width:250
+        	title: this.config.short_label,
+        	width:250
        
         }).dialogFix();
-
-        this.init();
-     
+        this.init();  
     }
 
     _updatePanelScale(){
@@ -175,32 +164,11 @@ class MLVTrackDialog{
                     self.panel.update();
                 }
             });
-            this.div.append("<hr>");
-            let discrete_div=$("<div>").append("<label>Discrete</label>");
-            let check = $("<input>").attr({type:"checkbox"}).prop("checked",this.config.discrete)
-                .click(function(e){
-                    self.config.discrete=$(this).prop("checked");
-                    if (self.panel){
-                        self.panel.setTrackAttribute(self.config.track_id,"discrete",self.config.discrete);
-                        self.panel.update();
-                    }
-                });
-            discrete_div.append(check).append("<br>").append("<label>height:</label>").appendTo(this.div);
-
-            let height_slider =$("<div>").slider({
-
-                min: 10,
-                max: 500,
-                value:self.config.height,
-                slide: function( event, ui ) {
-                    self.config.height= ui.value;
-                    self.panel.setTrackAttribute(self.config.track_id,"height",self.config.height);
-                    self.panel.update();
-                  
-                }
-            }).css({"margin":"5px 3px"});
-            height_slider.appendTo(discrete_div);
-            discrete_div.append("<label>group:</label>").append("<br>");
+            display_div.append("<br>");
+        
+           
+       
+            display_div.append("<label>group:</label>").append("<br>");
             let input= $("<input>").on("blur keypress",function(e){
                  if (e.type==="keypress" && !(e.which===13)){
                     return;
@@ -210,25 +178,64 @@ class MLVTrackDialog{
                 self.panel.update();
 
             });
-            input.val(this.config.group).appendTo(discrete_div);
-              
+            input.val(this.config.group).appendTo(display_div);
+         
+     		this.div.append("<hr>");
+		}
+		    let discrete_div=$("<div>").append("<label>Discrete</label>");
+            let check = $("<input>").attr({type:"checkbox"}).prop("checked",this.config.discrete)
+                .click(function(e){
+                    self.config.discrete=$(this).prop("checked");
+                    if (self.panel){
+                        self.panel.setTrackAttribute(self.config.track_id,"discrete",self.config.discrete);
+                        self.panel.update();
+                    }
+                    if (self.config.discrete){
+                    	self.height_div.show();
+                    }
+                    else{
+                    	self.height_div.hide();
+                    }
+                }).appendTo(discrete_div);
+            if (this.panel.fixed_height_mode){
+            	check.attr("disabled",true);
+            }
+            discrete_div.appendTo(this.div);
 
 
 
+       	// if (this.config.discrete || this.panel.fixed_height_mode){
+       	this.height_div=$("<div class='t-d-div'></div>");
+        	
+		this.height_div.append("<label>height:</label>").appendTo(this.div);
 
-
-
-
-     this.div.append("<hr>");
-    
+        let height_slider =$("<div>").slider({
+         	min: 10,
+            max: 500,
+            value:self.config.height,
+            slide: function( event, ui ) {
+            	self.config.height= ui.value;
+                self.panel.setTrackAttribute(self.config.track_id,"height",self.config.height);
+                self.panel.update(); 
+            }
+		}).css({"margin":"5px 3px"});
+        height_slider.appendTo(this.height_div);
+        if (!(self.panel.fixed_height_mode)){
+        	if (!(self.config.discrete)){
+        		this.height_div.hide();
+        	}
         }
+        else
+
+       // }
+
        
 
        
 
     if (this.config.format==="feature" || this.config.type==="bam"){
 
-    let feature_div=  $("<div>").append("<label>Height</label><br>");
+    let feature_div=  $("<div>").append("<label>Feature Height</label><br>");
     self.feature_height_slider=$("<div>").slider({
        max:40,
        min:3,
@@ -285,23 +292,101 @@ class MLVTrackDialog{
   
 
    let p = this.div.parent();
-   // p.find(".ui-dialog-content").css("font-size","12px");
- //   p.find(".ui-dialog-title").css("font-size","12px");
-   // p.find(".ui-dialog-titlebar").css("padding",".2em 1em");
-    //p.find(".t-d-div").css("margin","3px 0px");
-   // p.find("label").css({"font-weight":"600","margin-right":"3px","margin-top":"4px"});
-    //p.find("div").css("margin","3px");
 
-        	
-    }
-
-    
-       
-
-
-       
+    }       
 }
+
+class AddTrackDialog{
+	constructor(callback){
+        this.div = $("<div>").attr("class","add-track-dialog");
+        this.id=MLVTrackDialog.id++;
+        this.callback=callback
+        let self=this;
+        this.div.dialog({
+       		autoOpen: true,
+       		buttons:[{
+       			text:"Add",
+       			click:function(e){
+       				self.getConfig()
+       				$(this).dialog("close");
+       			}
+       		}],
+            close:function(){
+                $(this).dialog('destroy').remove();
+            },
+        	title: "Add Track",
+        	width:250
+       
+        }).dialogFix();
+        this.track_types=["bigwig","bed","ucsc_track","line","bigbed","fasta"]; 
+
+        this.init();
+      
+
+	}
+
+	getConfig(){
+		
+		let name= "track-add-radio-"+this.id
+		let type = $("input[name='"+this.type_radio+"']:checked").val();
+		let config= {url:this.url_input.val(),type:type,short_label:this.name_input.val()};
+		this.callback(config);
+		
+	}
+
+	init(){
+		let self=this;
+		this.div.append("<label>Paste URL</label>");
+		this.url_input= $("<textarea>").appendTo(this.div).css({width:"95%"});
+		this.url_input.on("blur keypress",function(e){
+			if (e.originalEvent.type==="keypress" &&  e.charCode !==13){
+				return;
+			}
+			self._getInfoFromUrl(($(this).val()))
+		
+
+		});
+		this.div.append($("<label>Name</label>"));
+		this.name_input = $("<input>").appendTo(this.div);
+		this.div.append($("<label>Type</label>"));
+		let radio_div=$("<div>").appendTo(this.div);
+		this.type_radio= 'track-add-radio-'+this.id
+		for (let type of this.track_types){
+			this.addRadioButton(radio_div,type);
+		}
+
+	}
+
+	setAddFunction(func){
+		this.callback=callback;
+	}
+
+	_getInfoFromUrl(url){
+		let type = MLVTrack.getTypeFromURL(url).type
+		let name = MLVTrack.calculateLabel(url);
+		if (url.includes("hgTracks")){
+			name = "UCSC Session";
+			type= "ucsc_track"
+		}
+		this.name_input.val(name);
+		$("[name='"+this.type_radio+"']").val([type]);
+
+	}
+
+	addRadioButton(div, type){
+		let sp =$("<span>").css({"display":"inline-block","margin-right":"3px"});
+		sp.append($("<input>").attr({type:"radio",value:type,name:this.type_radio}));
+		sp.append($("<span>").text(type));
+		div.append(sp);
+
+	}
+
+	
+
+
+}
+
 
 MLVTrackDialog.id=0;
 
-export {MLVTrackDialog};
+export {MLVTrackDialog,AddTrackDialog};

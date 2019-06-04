@@ -73,6 +73,9 @@ class MLVTrack{
 
 
 	static calculateLabel(url){
+		if (typeof url !== "string"){
+			url = url[0];
+		}
 		let arr =url.split("/");
 		let label= arr[arr.length-1];
 		arr= label.split(".");
@@ -83,32 +86,46 @@ class MLVTrack{
 	addExtraControls(div,panel){
 	}
 
-	static parseConfig(con){
-		let config = $.extend(true, {},con);
-		
-		if ((!config.type || !config.format) && config.url){
-			if (config.url.endsWith("bw")){
+	static getTypeFromURL(url){
+		let config={}
+		if (typeof url !== "string"){
+			return config;
+		}
+			if (url.endsWith("bw")){
 				config.type="bigwig";
 				config.format="wig";
 				
 			}
-			if (config.url.endsWith(".bed.gz")){
+			else if (url.endsWith(".bed.gz")){
 				config.type="bed";
 				config.format="feature"
 
 			}
-			if (config.url.endsWith(".bb") && !(config.type)){
+			else if (url.endsWith(".bb") && !(config.type)){
 				config.type="bigbed";
 				config.format="feature"
 
 			}
-			if (config.url.endsWith(".fasta")){
+			else if (url.endsWith(".fasta")){
 				config.type="fasta";
 				config.format="sequence";
 			}
-			if (config.url.endsWith(".bam")){
+			else if (url.endsWith(".bam")){
 				config.type="bam";
 				config.format="alignment";
+			}
+		return config;
+
+	}
+
+	static parseConfig(con){
+		let config = $.extend(true, {},con);
+		
+		if ((!config.type || !config.format) && config.url){
+			let info = MLVTrack.getTypeFromURL(config.url);
+			if (info.type){
+				config.type=info.type;
+				config.format=info.format;
 			}
 		}
 		if (!config.short_label && config.url){
@@ -213,10 +230,11 @@ MLVTrack.custom_tracks={};
 class RulerTrack extends MLVTrack{
 	constructor(config){
 		if (!config){
-			config={"track_id":"ruler"+RulerTrack.count,format:"ruler",short_label:"Ruler"};
+			config={"track_id":"ruler"+RulerTrack.count,format:"ruler",short_label:"Ruler",type:"ruler"};
 		}
 		super(config);
-        this.height = 30
+        this.height = 30;
+        this.config.height=30;
         this.name = "";
        
         this.disableButtons = true;
@@ -478,7 +496,6 @@ class MLVBedTrack extends MLVTrack{
         			gene.color=this.color_function(gene);
         		}
         		
-
                 this.renderFeature(gene,coord,ctx,info);
                 this.renderFeatureLabel(ctx, gene, coord.px, coord.px1, py, windowX, windowX1);
             }
@@ -744,6 +761,9 @@ class MLVWigTrack extends MLVTrack{
 
 
 	drawScale(pixel_height,ctx){
+		if (this.config.scale_link_to){
+			return;
+		}
 		let bot= pixel_height;
 		let top = 0;
 		if (this.scale_link_to){
@@ -755,7 +775,7 @@ class MLVWigTrack extends MLVTrack{
 			bot = this.bottom;
 		}
 		let range=this.max_y-this.min_y;
-		ctx.clearRect(0, 0, 200, pixel_height);
+
 		ctx.beginPath();
 		ctx.moveTo(0,top);
 		ctx.lineTo(0,bot);
@@ -790,21 +810,18 @@ class MLVWigTrack extends MLVTrack{
 	    str,
 	    min,
 	    max;
-	    if(this.config.discrete){
-	    	if (this.config.group){
+	    if (this.config.group){
 	    		pixelHeight=options.height;
-	    	}
-	    	else{
-	    		 pixelHeight=this.config.height;
-	    	}
-	    	
+	    }
+	    else if(this.config.discrete){
+	    		pixelHeight=this.config.height;	
 	    }
 	          
 	    if (!color){
 	    	color="black";       
 	    }
 	    self.prev_coords={x:0,y:0};
-
+		
 	    if (features) {
 	    	if (self.scale_link_to){
 	    		let t = self.scale_link_to.config;
@@ -824,7 +841,6 @@ class MLVWigTrack extends MLVTrack{
 	                self.max_y=self.config.max_y;
 	            }
 	          
-
 	            featureValueRange = self.max_y - self.min_y;
 
 	            //$dataRangeTrackLabel = $(this.trackView.trackDiv).find('.igv-data-range-track-label');

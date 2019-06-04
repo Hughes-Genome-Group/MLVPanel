@@ -82,7 +82,7 @@ class igvxhr {
                 }
             }
             */
-
+    
 
             xhr.open(method, url);
 

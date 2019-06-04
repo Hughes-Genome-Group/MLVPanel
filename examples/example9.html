@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+ 	<head>
+ 		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
+		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
+	</head>
+	<body>
+		<div id="the-track" style="height:500px;width:700px;border:1px solid black;"> </div>
+		<script src="../src/vendor/zlib_and_gzip.min.js"></script>
+		<script type = "module">
+			import '../src/vendor/jquery.min.js';
+			import '../src/vendor/jquery-ui.min.js';
+			import {MLVPanel} from '../src/panel.js';
+			import {TiledImageTrack} from '../src/extra/tiled_image_track.js'
+
+
+					
+
+			//now create panel and add the track
+			let panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+				allow_user_feature_click:true,
+				allow_user_feature_over:true
+			}
+
+
+			let panel1 = new MLVPanel(
+				[
+					{url:"/genes/sara_molbiol_ox/public/lanceotron/m4V9aGs1ZPZYN5iCJqvFYUnOv/peaks.bb",displayMode:"SQUISHED"}
+					//{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",scale:"dynamic",color:"blue",short_label:"ATAC Peaks",discrete:true,height:100,group:"g2",track_id:"blue"},
+					//only url and type is required
+					//{url:"",type:"tiled_image_track",short_label:"HiC pred"},
+					//{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz",displayMode:"EXPANDED"}
+					
+
+				],
+				panel_config
+			);
+			panel1.addRulerTrack();
+			panel1.addLegend();
+			  panel1.addListener("feature_clicked",function(track,feature,e,type){
+  				console.log(feature);
+ 			 });
+ 			 panel1.setBufferLevel(0);
+
+			panel1.update("chr1",9260-500,15500);
+		</script>
+  	</body>
+</html>

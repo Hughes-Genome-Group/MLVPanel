@@ -3482,7 +3482,8 @@ readers do not read off random characters that represent icons */
   content: "\f3ff"; }
 
 .fa-times:before {
-  content: "\f00d"; }
+  /* content: "\f00d"; */
+  }
 
 .fa-times-circle:before {
   content: "\f057"; }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+	<head>
+	    <!-- css files required -->
+		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
+		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
+  	</head>
+  	<body>
+  		<!-- the div to hold the track -->
+		<div id="the-track" style="height:200px;width:500px;border:1px solid black;"> </div>
+		<!--legacy script hard to import with es6 -->
+     	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
+     	<script type = "module">
+    	import '../src/vendor/jquery.min.js';
+		import '../src/vendor/jquery-ui.min.js';
+		//import any modules required
+    	import {MLVPanel} from '../src/panel.js';
+    	import {FeatureSource} from '../src/feature.js';
+    	import {MLVTrack,MLVBedTrack} from '../src/tracks.js';
+		class CustomGeneFeatureSource extends FeatureSource{
+			constructor(config){
+				config.sourceType="custom";
+				config.featureHeight=12;
+				super(config);
+				this.header=true;
+			}
+
+			retrieveFeatures(chr,bpStart,bpEnd,force,data){
+				let self = this;
+				return new Promise(function (fulfill, reject) {
+					let url = self.config.url+"/"+chr+"/"+bpStart+"/"+bpEnd;
+			 		$.ajax({
+	            			url:url,
+	            			dataType:"json"
+	        			}).done(features=>{
+	        				fulfill(features);
+	        			})	           
+	      		});   	
+			}
+	
+		}
+
+		class CustomAnnotationTrack extends MLVBedTrack{
+			constructor(config){
+				config.format="feature";
+				super(config);
+			}
+			_setFeatureSource(){
+				this.feature_source= new CustomGeneFeatureSource(this.config)
+			}
+		
+		}
+
+		MLVTrack.custom_tracks['custom_annotation']=CustomAnnotationTrack;
+
+    		//allow user interaction
+			var panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+			}
+			//minimal config, only track urls given
+			var panel1 = new MLVPanel(
+				[
+					{url:"/genes/meths/hg19/get_genes",color:"#000000",
+    						short_label:"Ref Genes",type:"custom_annotation",format:"feature",
+    						displayMode:"EXPANDED"}
+				],
+				panel_config
+			);
+			//could also use {type:"track"} in config
+			panel1.addRulerTrack();
+			//allow user to change track attributes
+			panel1.addLegend();
+			//go to a genomic position
+			panel1.update("chr16",100000,200000);	
+		</script>
+  	</body>
+</html>

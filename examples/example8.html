@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+	<head>
+	    <!-- css files required -->
+		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
+		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
+  	</head>
+  	<body>
+  		<!-- the div to hold the track -->
+		<div id="the-track" style="height:300px;width:700px;border:1px solid black;"> </div>
+
+  <div id="feature-tooltip" style="position:absolute;display:none;background-color:yellow"></div>
+
+		<!--legacy script hard to import with es6 -->
+     	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
+     	<script type = "module">
+    		import '../src/vendor/jquery.min.js';
+			import '../src/vendor/jquery-ui.min.js';
+			//import any modules required
+    		import {MLVPanel} from '../src/panel.js';
+    		import {MLVTrack,MLVBedTrack} from '../src/tracks.js';
+    		import {FeatureSource} from '../src/feature.js';
+    		import {BigInteractTrack} from '../src/big_interact_track.js';
+    		class CustomFeatureSource extends FeatureSource{
+	constructor(config){
+		config.sourceType="custom";
+		super(config);
+		this.header=true;
+	}
+
+	retrieveFeatures(chr,bpStart,bpEnd,force,data){
+		return new Promise(function (fulfill, reject) {
+			let url = "/genes/meths/hg19/get_genes/"+chr+"/"+bpStart+"/"+bpEnd;
+			fulfill([
+				{start:40575709,end:40582709,chr:"chr12",type:"deletion",desc:"deletion of XYZ"},
+				{start:40590000,end:40590001,chr:"chr12",type:"insertion",length:20000,desc:"insertion of XYZ"},
+				{start:40600000,end:40601000,chr:"chr12",type:"deletion",desc:"deletion of XYZ"},
+				{start:40640000,end:40640001,chr:"chr12",type:"insertion",length:10000,desc:"insertion of XYZ"},
+			]);
+		
+	      });   	
+	}
+	
+}
+
+class CustomDrawTrack extends MLVBedTrack{
+	constructor(config){
+		config.format="feature";
+
+		super(config)
+		this.config.featureHeight=40;
+	
+	}
+	_setFeatureSource(){
+		this.feature_source= new CustomFeatureSource(this.config);
+	}
+
+	drawFeatures(options){
+		
+			let ctx = options.context;
+			ctx.beginPath();
+        	ctx.moveTo(0,options.top+5);
+        	ctx.lineTo(options.pixelWidth,options.top+5);
+        	ctx.strokeStyle="black";
+        	ctx.lineWidth=3;
+        	ctx.stroke();
+        	ctx.lineWidth=1;
+		
+        let a= super.drawFeatures(options);
+        return options.top+40;
+
+	}
+	renderFeature(feature,coord,ctx,info){
+		ctx.fillStyle = this.config.color;
+		if (feature.type === "insertion"){
+			let len = feature.length/info.bpPerPixel;
+			ctx.rect(coord.px-(len/2),coord.py,len,20)
+        	ctx.beginPath();
+        	ctx.moveTo(coord.px-(len/2),coord.py+25);
+        	ctx.lineTo(coord.px+1,coord.py);
+        	ctx.lineTo(coord.px+(len/2),coord.py+25)
+		//ctx.ellipse(coord.px+coord.pw/2, coord.py+coord.h/2, coord.h/2,coord.pw/2, Math.PI/2,0,Math.PI*2,true);
+
+			ctx.stroke();
+			ctx.beginPath();
+		//ctx.rect(coord.px,coord.py,coord.pw,coord.h);
+			ctx.rect(coord.px-(len/2),coord.py+25,len,12);
+			ctx.fill();
+		}
+		else{
+			ctx.fillStyle="white";
+			ctx.beginPath();
+		//ctx.rect(coord.px,coord.py,coord.pw,coord.h);
+			ctx.rect(coord.px,coord.py-2,coord.pw,4);
+			ctx.fill();
+		}
+	}
+
+
+}
+MLVTrack.custom_tracks['custom_draw_track']=CustomDrawTrack;
+
+    		//allow user interaction
+			var panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+				allow_user_feature_click:true,
+				allow_user_feature_over:true
+			}
+			//minimal config, only track urls given
+			var panel1 = new MLVPanel(
+				[	{url:"http://martindev1.molbiol.ox.ac.uk/tracks/inter.bb",type:"big_interact",format:"feature",short_label:"interactions"},
+				 	{url:"hhh",type:"custom_draw_track",format:"feature",short_label:"Compare To Ref"},
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",discrete:true,color:"blue"}//,
+					//{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+				],
+				panel_config
+			);
+			//could also use {type:"track"} in config
+			panel1.addRulerTrack();
+			//allow user to change track attributes
+			panel1.addLegend();
+
+			panel1.addListener("feature_over",function(track,feature,e,type){
+	if (type==="over"){
+		let name = track.config.type==="custom_draw_track"?feature.desc:feature.name;
+		if (!name){
+			name="interaction";
+		}
+		$("#feature-tooltip").css({top:(e.clientY-10)+"px",left:(e.clientX+3)+"px"}).text(name).show();
+
+		console.log(feature.name+" out");
+	}
+	else{
+		$("#feature-tooltip").hide();
+	}
+});
+  panel1.addListener("feature_clicked",function(track,feature,e,type){
+  	console.log(type);
+  });
+
+			//go to a genomic position
+			panel1.update("chr12",40572709 ,40652520); 
+		</script>
+  	</body>
+</html>

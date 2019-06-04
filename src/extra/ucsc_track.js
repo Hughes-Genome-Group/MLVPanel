@@ -3,9 +3,20 @@
     	class UCSCMLVTrack extends MLVTrack{
 			constructor(config){
 				config.url= config.url.replace("hgTracks","hgRenderTracks");
+				if (config.url.includes("/s/")){
+					config.url=UCSCMLVTrack._convertSessionURL(config.url);
+				}
 				super(config);
 				this.image=null;
 				this.legend_width=44;
+			}
+
+			static _convertSessionURL(url){
+				let arr=url.split("/");
+				let new_url = arr[0]+"//"+arr[2]+"/cgi-bin/hgRenderTracks?hgS_doOtherUser=submit&hgS_otherUserName="+arr[4]
+					+"&hgS_otherUserSessionName="+arr[5];
+				return new_url;
+
 			}
 
 			addExtraControls(dialog){
@@ -34,6 +45,7 @@
 				return new Promise(function (fulfill, reject) {
 					self.image = new Image();
 					self.image.onload = function () {
+						self.config.height = self.image.height;
     					fulfill([]);
 					};
 					let url = self.config.url;
@@ -59,3 +71,5 @@
 		}
 
 		MLVTrack.custom_tracks['ucsc_track']=UCSCMLVTrack;
+
+export {UCSCMLVTrack};

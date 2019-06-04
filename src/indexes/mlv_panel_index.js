@@ -5,3 +5,4 @@ import "../vendor/jquery-ui.min.js";
 import "../vendor/jquery-ui-fixes.js";
 import {MLVPanel} from "../panel.js";
 window.MLVPanel = MLVPanel;
+window.$=$;

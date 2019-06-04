@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+	<head>
+	    <!-- css files required -->
+		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
+		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
+		<link rel="stylesheet" href="../css/mlv_panel.css">
+  	</head>
+  	<body>
+  		<!-- the div to hold the track -->
+		<div id="the-track" style="height:400px;width:500px;border:1px solid black;"> </div>
+		<!--legacy script hard to import with es6 -->
+     	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
+     	<script type = "module">
+    		import '../src/vendor/jquery.min.js';
+			import '../src/vendor/jquery-ui.min.js';
+			//import any modules required
+    		import {MLVPanel} from '../src/panel.js';
+    		//allow user interaction and have ruler track and legend
+			var panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+				legend:true,
+				ruler_track:true,
+				
+			}
+			//minimal config, only track urls given
+			var panel1 = new MLVPanel(
+				[
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",height:100,discrete:true,color:"#6495ED",track_id:"peaks",opacity:0.5,group:"g1",scale:"dynamic"},
+					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks2.bw",height:100,discrete:true,color:"#00FFFF",opacity:0.5,group:"g1",scale_link_to:"peaks"},
+					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+				],
+				panel_config
+			);
+			//go to a genomic position
+			panel1.update("chr19",470000,510000);	
+		</script>
+  	</body>
+</html>

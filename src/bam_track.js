@@ -23,7 +23,7 @@
  * THE SOFTWARE.
  */
 
-import {MLVTrack,Graphics} from "./tracks.js";
+import {MLVTrack,Graphics,MLVWigTrack} from "./tracks.js";
 import {BamSource,PairedAlignment} from "./bam.js";
 import {Utils} from "./utils.js";
 
@@ -40,6 +40,16 @@ class BAMTrack extends MLVTrack{
         }
         super(config);
         this._setFeatureSource();
+        if (this.config.bigwig){
+            this.bigwig_track = new MLVWigTrack({
+                url:this.config.bigwig,
+                type:"bigwig",
+                discrete:true,
+                color:"#D3D3D3",
+                scale:"dynamic",
+                height:100
+            })
+        }
 
         
 
@@ -77,6 +87,11 @@ class BAMTrack extends MLVTrack{
     }
 
     getFeatures(chr, bpStart, bpEnd,force,data) {
+        if (bpEnd- bpStart>500000 && this.bigwig_track){
+            this.draw_bigwig=true;
+            return this.bigwig_track.getFeatures(chr, bpStart, bpEnd,force,data);
+        }
+        this.draw_bigwig=false;
         return this.feature_source.getAlignments(chr, bpStart, bpEnd);
     }
 
@@ -108,6 +123,10 @@ class BAMTrack extends MLVTrack{
 
     drawFeatures(options) {
         this.top=options.top;
+        if (this.draw_bigwig){
+            this.bottom=this.bigwig_track.drawFeatures(options);
+            return;
+        }
         if(this.coverageTrack.height > 0) {
             this.coverageTrack.draw(options);
 
@@ -122,6 +141,50 @@ class BAMTrack extends MLVTrack{
         this.coverageTrack.paintAxis(ctx, pixelWidth, this.coverageTrackHeight);
 
     }
+    getFeatureAt(genomicLocation,chr,offset,bpPerPixel){
+    	var packedAlignmentRows = this.feature_source.alignmentContainer.packedAlignmentRows,
+            downsampledIntervals = this.feature_source.alignmentContainer.downsampledIntervals,
+            packedAlignmentsIndex,
+            alignmentRow,
+            clickedObject,
+            i, len, tmp;
+        
+        packedAlignmentsIndex = Math.floor(((offset.y -this.top-this.coverageTrack.height) - (alignmentRowYInset)) / this.config.featureHeight);
+
+        if (packedAlignmentsIndex < 0) {
+
+            for (i = 0, len = downsampledIntervals.length; i < len; i++) {
+
+
+                if (downsampledIntervals[i].start <= genomicLocation && (downsampledIntervals[i].end >= genomicLocation)) {
+                    clickedObject = downsampledIntervals[i];
+                    break;
+                }
+
+            }
+        }
+        else if (packedAlignmentsIndex < packedAlignmentRows.length) {
+
+            alignmentRow = packedAlignmentRows[packedAlignmentsIndex];
+
+            clickedObject = undefined;
+
+            for (i = 0, len = alignmentRow.alignments.length, tmp; i < len; i++) {
+
+                tmp = alignmentRow.alignments[i];
+
+                if (tmp.start <= genomicLocation && (tmp.start + tmp.lengthOnRef >= genomicLocation)) {
+                    clickedObject = tmp;
+                    break;
+                }
+
+            }
+        }
+
+        return clickedObject;
+
+    }
+
 
     popupData(genomicLocation, xOffset, yOffset) {
 

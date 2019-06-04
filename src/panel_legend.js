@@ -8,20 +8,15 @@ class PanelLegend{
 
         this.panel=panel;
         this.track_index={};
-        this.div=$("<div>").css({"position":"absolute","top":"0px","right":"0px","border":"0.5px solid black","font-size":"14px"})
+        this.div=$("<div>").attr({"class":"mlv-track-legend"})
+        .mousedown(function(e){
+            e.stopPropagation();
+        })
 
         if (config.draggable || config.draggable=== undefined){
 
           this.div.draggable({
-            containment:"parent",
-            drag:function(event,ui){
-                $._no_drag=true;
-                $(this).css("right","");
-            },
-            stop:function(event,ui){
-                $._no_drag=false;
-            }
-
+            containment:"parent"
          })
 
         }
@@ -37,11 +32,13 @@ class PanelLegend{
         let self = this;
         this.div.append(this.li);
         this.li.sortable({
+            helper:"clone",
             stop:function(e,ui){
             	self._reOrder(ui.item);
          
             }
         });
+      
       
         panel.trackDiv.append(this.div);
         
@@ -88,20 +85,20 @@ class PanelLegend{
            if (index==0){
         	   el.css("color",track.color);  	   
            }
-           else{
-               el.text(track.short_label);
+           else if (index==1){
+               el.text( track.short_label);
            }
-        });                  
+        });
+        this.li.width(null);                  
     }
     
     addTrack(track){
         let self = this;
         let item = $("<li>").data({track:track,panel:this.panel})
-        .css({"white-space":"nowrap"})
         .click(function(e){
             new MLVTrackDialog(track,self.panel);
         });
-        let span = $("<span>").width(15).height(15).css({"display":"inline-block","margin-right":"3px"});
+        let span = $("<span>");
         let icon= "fas fa-signature"
         if (track.format==="feature"){
             icon = "fas fa-stream"
@@ -110,7 +107,7 @@ class PanelLegend{
             icon="fas fa-ruler-horizontal";
         }
 
-        span.attr("class",icon).css("color",track.color)
+        span.attr("class",icon).css({"color":track.color})
         /*if (track.format==='line'){
             span.height(2);
         }
@@ -118,8 +115,17 @@ class PanelLegend{
             span.height(4)
         }
         */
-        let text = $("<span>");//.text(track.short_label)
+        let text = $("<span>").attr("class","mlv-track-legend-text");
         item.append(span).append(text);
+        let t_sp = $("<span>").width(15).appendTo(item);
+        if (track.allow_user_remove){
+            let rm=$("<i class='fas  fa-trash'></i>").click(function(e){
+                self.panel.removeTrack(track.track_id);
+                self.removeTrack(track.track_id);
+            })
+            .css("float","right")
+            .appendTo(t_sp);
+        }
         this.li.append(item); 
         this.track_index[track.track_id]=item;
         this.updateTrack(track.track_id);   

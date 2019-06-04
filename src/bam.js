@@ -442,7 +442,7 @@ class BGZFile{
                 var chrId = chrToIndex[chr],
 
                     alignmentContainer = new AlignmentContainer(chr, bpStart, bpEnd, self.samplingWindowSize, self.samplingDepth, self.pairsSupported);
-                    chrId=11;
+                    
                 if (chrId === undefined) {
                     fulfill(alignmentContainer);
                 } else {

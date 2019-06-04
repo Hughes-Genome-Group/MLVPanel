@@ -9,7 +9,18 @@
 		<!-- contains all the js and css necessary -->
    	 	<script src="../dist/mlv_panel.js" ></script>
    	 	<script>   
-
+			//specify the tracks
+			var index =0;
+			var colorArray = ['#FF6633', '#FFB399', '#FF33FF', '#FFFF99', '#00B3E6', 
+		  '#E6B333', '#3366E6', '#999966', '#99FF99', '#B34D4D',
+		  '#80B300', '#809900', '#E6B3B3', '#6680B3', '#66991A', 
+		  '#FF99E6', '#CCFF1A', '#FF1A66', '#E6331A', '#33FFCC',
+		  '#66994D', '#B366CC', '#4D8000', '#B33300', '#CC80CC', 
+		  '#66664D', '#991AFF', '#E666FF', '#4DB3FF', '#1AB399',
+		  '#E666B3', '#33991A', '#CC9999', '#B3B31A', '#00E680', 
+		  '#4D8066', '#809980', '#E6FF80', '#1AFF33', '#999933',
+		  '#FF3380', '#CCCC00', '#66E64D', '#4D80CC', '#9900B3', 
+		  '#E64D66', '#4DB380', '#FF4D4D', '#99E6E6', '#6666FF'];
     		var tracks=[
     			{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",track_id:"peaks",color:"#939391",scale:"dynamic"},
     			{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/smooth.bw",
@@ -19,36 +30,41 @@
     				color:"#ff9385",displayMode:"EXPANDED",short_label:"regions"},
     			{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
     		];
-
+			//create the main panel allowing the user to click features
     		var main_panel = new MLVPanel(tracks,{
-			allow_user_drag:true,
-			allow_user_zoom:true,
-			div:"the-track",
-			allow_user_feature_click:true
+				allow_user_drag:true,
+				allow_user_zoom:true,
+				div:"the-track",
+				allow_user_feature_click:true
     		});
+    		//add the feature clicked listener, supplying a function which
+    		//will create a new panel
    	 		main_panel.addRulerTrack().addListener("feature_clicked",
     			function(track,feature){
+    				//user clicks on a track but not a feature
     				if (!feature){
     					return;
     				}
-    			let config={
-    				allow_user_close:true,
-    				allow_user_zoom:true,
-    				allow_user_drag:true,
-    				allow_user_move:true,
-    				allow_user_resize:true,
-    				height:200,
-    				width:400,
-    			}
-			let panel= new MLVPanel(tracks,config);
-			panel.addRulerTrack();
-			let div = panel.getDiv();
-			div.css({top:"220px",left:"30px",border:"1px solid black"}).appendTo("body");
-			panel.update(feature.chr,feature.start-100,feature.end+100);
-        	}
-   	 );
-     	main_panel.addLegend();
-    	main_panel.update("chr19",470000,510000);
+    				//the conffig for the new panel
+    				let config={
+    					allow_user_close:true,
+    					allow_user_zoom:true,
+    					allow_user_drag:true,
+    					allow_user_move:true,
+    					allow_user_resize:true,
+    					height:200,
+    					width:400,
+    				}
+					let panel= new MLVPanel(tracks,config);
+					panel.addRulerTrack();
+					let div = panel.getDiv();
+					div.css({top:"220px",left:"30px",border:"1px solid black","background-color":"white"}).appendTo("body");
+					//panel.setTrackAttribute("peaks","color",colorArray[index++])
+					panel.update(feature.chr,feature.start-100,feature.end+100);
+        		}
+        	);
+     		main_panel.addLegend();
+    		main_panel.update("chr19",470000,510000);
 
 
 
