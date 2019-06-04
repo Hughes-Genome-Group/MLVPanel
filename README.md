@@ -31,4 +31,4 @@ The [index file](src/indexes/mlv_panel_index.js) specified in the config simply 
 and exposes certain modules by attaching them to the winodow object.
 
 ## Documentation
-Documentation can be found on the [wiki](wiki).
+Documentation can be found on the [wiki](https://github.com/Hughes-Genome-Group/MLVPanel/wiki).
