@@ -28,7 +28,7 @@ For a standard build cd to the base directory and use the following command (ass
 webpack --config mlv_panel_config.js
 ```
 The [index file](src/indexes/mlv_panel_index.js) specified in the config simply imports the required css files and javascript modules 
-and exposes certain modules by attaching them to the winodow object.
+and exposes certain modules by attaching them to the window object.
 
 ## Documentation
 Documentation can be found on the [wiki](https://github.com/Hughes-Genome-Group/MLVPanel/wiki).
