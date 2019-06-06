@@ -155,6 +155,9 @@ class MLVPanel {
        	if (config.allow_user_drop){
        		this.allowUserDrop();
        	}
+       	if (config.allow_user_range_selection){
+       		this.allowUserRangeSelection();
+       	}
 
        	if(config.ruler_track){
        		this.addRulerTrack();
@@ -207,6 +210,12 @@ class MLVPanel {
     	this.legend = new PanelLegend(this);
     }
 
+        /**
+	* Sets the highligted region
+	* @param {Object} location - An object containing chr, start and end
+	* @param {name} The name(id) of the region (used to remove the region)
+	* @param {String} The color to give the highligted region
+	*/
     setHighlightedRegion(location,name,color){
     	this.highlighted_regions[name]={
     		chr:location.chr,
@@ -217,6 +226,12 @@ class MLVPanel {
     	this.force_redraw=true;
 
     }
+
+    /**
+	* Removes the highlighted region from the panel
+	* @param {string} name - The name of the highlighted region
+	* that was given when it was created.
+	*/
     removeHighlightedRegion(name){
     	delete this.highlighted_regions[name];
     	this.force_redraw=true;
@@ -300,7 +315,7 @@ class MLVPanel {
 
     }
     
-	 /**
+	/**
 	* Removes a listener to the panel
 	* @param {object} config - The config of the track to add 
 	*/
@@ -355,10 +370,25 @@ class MLVPanel {
     	}
     }
 
+
+    /**
+	* Sets the filter  function for track. 
+	* @param {string} track_id- The id of the track
+	* @param {string} func - The filter function. It should accept the feature
+	* and return true to dispaly the feature and false to hide it. Use null 
+	* to cancel the filter
+	*/
     setTrackFeatureFilter(track_id,func){
     	let track = this.tracks[track_id];
     	track.setFilterFunction(func);
     }
+
+    /**
+	* Sets the filter  function for track 
+	* @param {string} track_id- The id of the track
+	* @param {string} func - The color function. It should accept the feature
+	* and return the feature color. Use null to go back to default colors 
+	*/
     setTrackColorFunction(track_id,func){
     	let track = this.tracks[track_id];
     	track.setColorFunction(func);
@@ -502,12 +532,21 @@ class MLVPanel {
             bpWidth = Math.round(pixelWidth*this.bpPerPixel);
             bpStart = Math.max(0, Math.round(this.start-(this.buffer_level*this.canvas.width*this.bpPerPixel)));
             bpEnd = bpStart + bpWidth;
+            if (self.loading){
+            	if (force && range_from_tile){
+            		self.update_required=true;
+            	}
+            	else{
+            		self.update_required="location";
+            	}
+            	return;
+            }
             if (range_from_tile){
                 bpStart=this.tile.startBP;
                 bpEnd=this.tile.endBP;
             }
 
-            if (self.loading)return;// && self.loading.start === bpStart && self.loading.end === bpEnd) return;
+         
 
             self.loading = {start: bpStart, end: bpEnd};
             self.trackDiv.find(".mlv-alert").remove();
@@ -612,6 +651,16 @@ class MLVPanel {
                     else {
                         self.ctx.clearRect(0, 0, self.canvas.width, self.canvas.height);
                     }
+                    if (self.update_required){
+                    	if (self.update_required==="location"){
+                    		self.update(self.chr,self.start,self.end);
+                    		self.update_required=false;
+                    	}
+                    	else{
+                    		self.update_required=false;
+                    		self.update();
+                    	}
+                    }	
                     Utils.stopSpinnerAtParentElement(self.trackDiv);
 
                 })
@@ -646,7 +695,7 @@ class MLVPanel {
 
     	let width = (region.end-region.start)/options.bpPerPixel;
     	width =width>options.pixelWidth?options.pixelWidth:width;
-		options.context.globalAlpha=0.05;
+		options.context.globalAlpha=0.1;
 		options.context.fillStyle=region.color;
     	options.context.fillRect(start,0,width,options.pixelHeight);
     	options.context.globalAlpha=1.0;
@@ -836,11 +885,6 @@ class MLVPanel {
     disableUserZoom(){
 		this.trackDiv.off("mousewheel.zoom");
     }
-
-
-    setHighlight(start,end){
-
-    }
     
     
     allowUserRangeSelection(){
@@ -1005,7 +1049,14 @@ class MLVPanel {
         return this;
     }
 
-    allowUserMove(direction){
+     /**
+	* Allows the user to move the panel via a handle in the
+	* top right hand corner
+	* @param {string} direction - either vertical or horzontal, will restrict movement 
+	* in this plane
+	* @param {boolean} if true then the panel will be constrained within its parent 
+	*/
+    allowUserMove(direction,contain){
     	let axis=false;
     	let icon= "fa-arrows-alt";
     	if (direction=="vertical"){
@@ -1019,14 +1070,18 @@ class MLVPanel {
     	let div = this.trackDiv;
 		div.find(".panel-icon-div").prepend($("<span class='track-handle fas "+icon+"'></span>").css({"cursor":"move"}));
         let self =this;
-        div.draggable({handle:".track-handle",axis:axis});
+        let c=false
+        if (contain){
+        	c="parent"
+        }
+        div.draggable({handle:".track-handle",axis:axis,containment:c});
         return this;
     }
 
     allowUserClose(){
 		let div = this.trackDiv;
 		let self =this;
-		let icon=$("<span class='fas fa-times'></span>")
+		let icon=$("<span class='fas fa-trash'></span>")
 				.click(()=>{
 					  self.listeners.panel_closed.forEach((func)=>{func(self)});
 						div.remove()

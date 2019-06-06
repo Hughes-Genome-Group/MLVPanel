@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+
+	<body>
+		<!-- headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> Custom Track - Hard Coded Features </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example15.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px"> 
+			A simple custom track which draws features which are hard coded
+		</div>
+		
+		<!-- The div to house the panel -->
+		<div id="the-track" style="height:300px;width:700px;border:1px solid black;"> </div>
+		
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
+   	 	<script>
+
+			class SimpleFeatureTrack extends MLVTrack{
+				getFeatures(chr,bpStart,bpEnd,force,data){
+					let self=this;
+					//return a promise 
+					return new Promise(function (fulfill, reject) {
+						//contrived example-normally would get from request to server
+						if (chr==="chr16" && bpStart<1000000 && bpEnd>500000){
+							fulfill([
+								{chr:"16",start:520000,end:550000,name:"feature1"},
+								{chr:"16",start:600000,end:700000,name:"feature2"},
+								{chr:"16",start:800000,end:1000000,name:"feature3"},
+							]);
+						}
+						else{
+							fulfill([]);
+							
+						}		
+					});		
+				}
+				//helper method convert bp to pixels
+				_calculatePixel(options,bp){
+					let pix= (bp-options.bpStart)/options.bpPerPixel;
+					pix=pix>0?pix:0;
+					pix=pix<options.pixelWidth?pix:options.pixelWidth;
+					return pix;
+					
+				}
+
+				drawFeatures(options) {
+					//simply draw the image on the buffer canvas at the correct position
+					let ctx = options.context;
+					let height= this.config.featureHeight?this.config.featureHeight:12;
+					ctx.fillStyle = this.config.color;
+					for (let f of options.features){
+						let st=this._calculatePixel(options,f.start);
+						let en=this._calculatePixel(options,f.end);
+						let width = en-st;
+						width = width>2?width:2;
+						ctx.fillRect(st,options.top+2,width,height)
+						
+					}
+					this.top=options.top+2;
+					this.bottom = this.top+height;
+					return this.bottom;
+					
+
+				}
+			}
+			
+			//register the track so the panel knows which object to create based on type
+			MLVTrack.custom_tracks['simple_track']=SimpleFeatureTrack;
+			
+
+			//now create panel and add the track
+			let panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+			}
+
+
+			let panel1 = new MLVPanel(
+				[
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/source.bw"
+						,color:"blue",short_label:"ATAC Peaks",discrete:true,height:80
+					},
+					//only url and type is required
+					{url:"",type:"simple_track",short_label:"Simple Track",color:"purple"
+					}
+				],
+				panel_config
+			);
+			panel1.addRulerTrack();
+			panel1.addLegend();
+			panel1.update("chr16",500000,1000000);
+		</script>
+  	</body>
+</html>

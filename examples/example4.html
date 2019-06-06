@@ -3,32 +3,27 @@
 	<head>
   	</head>
   	<body>
+  		<h2 style= "display:inline-block;margin-bottom:4px"> Popup Panels </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example4.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px">
+			Click on feature or gene and a panel will pop up showing the feature/gen in more detail
+		</div>
 		<div id="the-track" style="height:200px;width:600px;border:1px solid black;"> </div>
 		<!-- only necessary for browsers which do not support es6-->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
 		<!-- contains all the js and css necessary -->
    	 	<script src="../dist/mlv_panel.js" ></script>
    	 	<script>   
-			//specify the tracks
-			var index =0;
-			var colorArray = ['#FF6633', '#FFB399', '#FF33FF', '#FFFF99', '#00B3E6', 
-		  '#E6B333', '#3366E6', '#999966', '#99FF99', '#B34D4D',
-		  '#80B300', '#809900', '#E6B3B3', '#6680B3', '#66991A', 
-		  '#FF99E6', '#CCFF1A', '#FF1A66', '#E6331A', '#33FFCC',
-		  '#66994D', '#B366CC', '#4D8000', '#B33300', '#CC80CC', 
-		  '#66664D', '#991AFF', '#E666FF', '#4DB3FF', '#1AB399',
-		  '#E666B3', '#33991A', '#CC9999', '#B3B31A', '#00E680', 
-		  '#4D8066', '#809980', '#E6FF80', '#1AFF33', '#999933',
-		  '#FF3380', '#CCCC00', '#66E64D', '#4D80CC', '#9900B3', 
-		  '#E64D66', '#4DB380', '#FF4D4D', '#99E6E6', '#6666FF'];
+	
+		
     		var tracks=[
-    			{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",track_id:"peaks",color:"#939391",scale:"dynamic"},
-    			{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/smooth.bw",
+    			{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw",track_id:"peaks",color:"#939391",scale:"dynamic"},
+    			{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/smooth.bw",
     				color:"#800000",display:"line",scale_link_to:"peaks"},
   
-    			{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/region.bb",
+    			{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/region.bb",
     				color:"#ff9385",displayMode:"EXPANDED",short_label:"regions"},
-    			{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+    			{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/refGene.hg19.bed.gz"}
     		];
 			//create the main panel allowing the user to click features
     		var main_panel = new MLVPanel(tracks,{
@@ -45,7 +40,7 @@
     				if (!feature){
     					return;
     				}
-    				//the conffig for the new panel
+    				//the config for the new panel
     				let config={
     					allow_user_close:true,
     					allow_user_zoom:true,
@@ -58,8 +53,8 @@
 					let panel= new MLVPanel(tracks,config);
 					panel.addRulerTrack();
 					let div = panel.getDiv();
-					div.css({top:"220px",left:"30px",border:"1px solid black","background-color":"white"}).appendTo("body");
-					//panel.setTrackAttribute("peaks","color",colorArray[index++])
+					//set some attributes and attach to the dom
+					div.css({top:"220px",left:"30px",border:"1px solid black","background-color":"white"}).appendTo("body")
 					panel.update(feature.chr,feature.start-100,feature.end+100);
         		}
         	);

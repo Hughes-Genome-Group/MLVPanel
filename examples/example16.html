@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+	
+  	<body>
+  		<!-- headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px">Drawing Features</h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example16.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px">
+			Features being drawn as ovals
+		</div>
+		
+		<!-- The div to house the panel -->
+		<div id="the-track" style="height:300px;width:700px;border:1px solid black;"> </div>
+		
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
+   	 	<script>
+
+  						
+
+			class CustomDrawTrack extends MLVBigBedTrack{
+				constructor(config){
+					config.format="feature";
+					if (!config.featureHeight){
+						config.featureHeight=20;
+					}
+					super(config);
+				}
+				renderFeature(feature,coord,ctx,info){
+					ctx.beginPath();
+					ctx.fillStyle=feature.color?feature.color:this.config.color;
+					ctx.ellipse(coord.px+coord.pw/2, coord.py+coord.h/2, coord.h/2,coord.pw/2, Math.PI/2,0,Math.PI*2,true);
+					ctx.fill();
+
+				}
+			}
+			//register the new track type
+			MLVTrack.custom_tracks['custom_draw_track']=CustomDrawTrack;
+
+    			//allow user interaction
+			var panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+				ruler_track:true,
+				legend:true
+			}
+			var bb_url = "https://lanceotron.molbiol.ox.ac.uk/tracks/examples/region.bb";
+		
+			var panel1 = new MLVPanel(
+				[
+					{url:bb_url,short_label:"Normal",track_id:"normal"},
+					{url:bb_url,short_label:"Custom Draw",type:"custom_draw_track",track_id:"custom",color:"#0802FF"}
+				],
+				panel_config
+			);
+			panel1.update("chr19",480000,500000);	
+		</script>
+  	</body>
+</html>

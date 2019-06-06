@@ -6,8 +6,8 @@
 				position:absolute;
 				width:20px;
 				height: 150px;
-				left:400px;
-				top:10px;
+				left:390px;
+				top:0px;
 				background-color:gray;
 				opacity:0.4;
 			}
@@ -15,18 +15,26 @@
  	</head>
 
  	<body>
+		
+		<h2 style= "display:inline-block;margin-bottom:4px"> Linked Panels </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example3.html">View Source</a>
+		<div style="width:800px;margin-bottom:10px"> 
+			The lower panel shows the zoomed in region
+		 </div>
+		<!-- The divs to hold the panels -->
+   	 	<div id="main-panel" style="height:150px;width:800px;border:1px solid black;">
+				<div id="zoom-region"></div>
+   		 </div>
+   	 	</div>
+   		<div id="zoom-panel" style="position:absolute;height:300px;width:600px;border:1px solid black;top:240px;left:100px;">
+				
+   		<!-- div to show the zoomed in region in the main panel -->
+  		
+
 		<!-- only necessary for browsers which do not support es6-->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
 		<!-- contains all the js and css necessary -->
    	 	<script src="../dist/mlv_panel.js" ></script>
-		
-		<!-- The divs to hold the panels -->
-   	 	<div id="main-panel" style="height:150px;width:800px;border:1px solid black;"> </div>
-   		<div id="zoom-panel" style="position:absolute;height:300px;width:600px;border:1px solid black;top:160px;left:100px;"> </div>
-   		<!-- div to show the zoomed in region in the main panel -->
-  		<div id="zoom-region"></div>
-
-
 		<script>
 			//allow user interaction
 			var main_panel_config={

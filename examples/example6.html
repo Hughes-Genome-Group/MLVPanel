@@ -1,18 +1,23 @@
 <!doctype html>
 <html>
- 	<head>
- 		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
-		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
-	</head>
-	<body>
-		<div id="the-track" style="height:500px;width:700px;border:1px solid black;"> </div>
-		<script src="../src/vendor/zlib_and_gzip.min.js"></script>
-		<script type = "module">
-			import '../src/vendor/jquery.min.js';
-			import '../src/vendor/jquery-ui.min.js';
-			import {MLVPanel} from '../src/panel.js';
-			import {MLVTrack} from '../src/tracks.js'
 
+	<body>
+		<!-- headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> Custom UCSC Track </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example6.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px"> 
+			A simple custom track which simply retrieves a UCSC image and displays 
+			it on the panel's canvas
+		</div>
+		
+		<!-- The div to house the panel -->
+		<div id="the-track" style="height:500px;width:700px;border:1px solid black;"> </div>
+		
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
+   	 	<script>
 
 			class UCSCMLVTrack extends MLVTrack{
 				constructor(config){
@@ -49,8 +54,8 @@
 					return this.bottom;
 				}
 			}
+			
 			//register the track so the panel knows which object to create based on type
-
 			MLVTrack.custom_tracks['ucsc_track']=UCSCMLVTrack;
 			
 
@@ -64,7 +69,9 @@
 
 			let panel1 = new MLVPanel(
 				[
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",scale:"dynamic",color:"blue",short_label:"ATAC Peaks",discrete:true,height:100,group:"g2",track_id:"blue"},
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/source.bw"
+						,color:"blue",short_label:"ATAC Peaks",discrete:true,height:80
+					},
 					//only url and type is required
 					{url:"https://genome-euro.ucsc.edu/cgi-bin/hgTracks?hgS_doOtherUser=submit&hgS_otherUserName=mjs123&hgS_otherUserSessionName=hg19_test",
 						type:"ucsc_track",short_label:"UCSC"

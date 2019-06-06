@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+	<head>
+		
+ 	</head>
+ 	<body>
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
+		
+		<!-- The div to hold the panel -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> Drag And Drop</h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example13.html">View Source</a>
+		<div style="width:800px;margin-bottom:10px"> 
+			Drag the track labels from the left div on to the main div to create a panel
+			Tracks can also be transferred between panels by dragging the labels in the legend 
+			between panels
+		</div>
+   	 	<div id="track-menu" style="height:100px;width:100px;border:1px solid black;position:absolute;top:100px"> </div>
+   	 		<div id="drop-zone" style="height:500px;width:700px;border:1px solid black;position:absolute;top:100px;left:110px"> </div>
+   	 	<script>			
+    		var available_tracks = [
+				{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw",color:"#D2691E",short_label:"BigWig 1",track_id:"bw1"},
+				{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks2.bw",color:"#6495ED",short_label:"BigWig 2",track_id:"bw2"},
+				{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/refGene.hg19.bed.gz",short_label:"Genes",track_id:"genes"},
+				{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/region.bb",color:"#BA55D3",short_label:"Features",track_id:"features"}
+    		];
+    		//set up the menu
+    		for (var index in  available_tracks){
+    			var track = available_tracks[index];
+    			$("<div>").text(track.short_label).css("z-index",700)
+    				.data("track",track)
+    				.draggable({
+    					helper:"clone"
+    			})
+    			.appendTo("#track-menu");
+    		}
+
+
+    		$("#drop-zone").droppable({
+    			drop: function( event, ui ) {
+       				var track = ui.draggable.data('track');
+       				if (!track){
+       					return;
+       				}
+       				var panel_config={
+    					allow_user_close:true,
+    					allow_user_zoom:true,
+    					allow_user_drag:true,
+    					allow_user_resize:true,
+    					allow_user_drop:true,
+    					height:200,
+    					width:400,
+    					ruler_track:true,
+    					legend:true
+    				}
+					var panel= new MLVPanel([track],panel_config);
+					panel.allowUserMove(false,true);
+
+					var div = panel.getDiv();
+					div.css({top:event.clientY-100,left:event.clientX-110,border:"1px solid black","background-color":"white"}).appendTo("#drop-zone");
+					panel.update("chr19",400000,500000);
+    			}
+    		});			
+		</script>
+ 	 </body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+	<head>
+		
+ 	</head>
+ 	<body>
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
+		
+		<!-- The div to hold the panel -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> Filter and Color Features </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example12.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px">
+			Any genes less than 10kb are hidden. Genes less than 20kb are colored red
+			and those that are longer are colored green.
+		</div>
+   	 	<div id="the-track" style="height:200px;width:700px;border:1px solid black;"> </div>
+
+
+		<script>
+			//allow user interaction
+			var panel_config={
+				div:"the-track",
+				allow_user_drag:true,
+				allow_user_zoom:true,
+				ruler_track:true,
+				//allow the user to select a range (shift and drag)
+				allow_user_range_selection:true
+				
+			}
+			
+			var panel1 = new MLVPanel(
+				[
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw"},
+					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz",
+						track_id:"gene_track"}
+				],
+				panel_config
+			);
+			/*need to supply a function which accepts the feature and returns true
+			to show the feature and false to hide it
+			*/
+			panel1.setTrackFeatureFilter("gene_track",function(feature){
+				//hide genes less than 10kb
+				if (feature.end-feature.start<10000){
+					return false;
+				}
+				return true;
+			});
+			//need to supply a function which accepts the feature and returns a color
+			panel1.setTrackColorFunction("gene_track",function(feature){
+				if (feature.end-feature.start<20000){
+					return "red";
+				}
+				return "green";
+			});
+			
+		
+	
+			panel1.update("chr16",100000,200000);
+		</script>
+ 	 </body>
+</html>

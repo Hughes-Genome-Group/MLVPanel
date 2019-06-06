@@ -66,7 +66,17 @@ class MLVTrack{
     		this._setFeatureSource();
     	}
     }
-	
+
+     /**
+	* Reteives the features requested, the default is just to get the features
+	* from the feature source 
+	* @param {string} chr - The chromosome 
+	* @param {integer} start - The start of the range from which to obtain features
+	* @param {integer} end - The end of the range from which to obtain features 
+	* @param {boolean} force - If true then cached features should not be used
+	* but fresh features retrieved
+	* @param {Object} data - contains bp  ber pixel and width of the canvas 
+	*/
 	getFeatures (chr, bpStart, bpEnd,force,data) {
 		return this.feature_source.getFeatures(chr,bpStart,bpEnd,force,data);
 	}
@@ -121,7 +131,7 @@ class MLVTrack{
 	static parseConfig(con){
 		let config = $.extend(true, {},con);
 		
-		if ((!config.type || !config.format) && config.url){
+		if (!(config.type) && config.url){
 			let info = MLVTrack.getTypeFromURL(config.url);
 			if (info.type){
 				config.type=info.type;

@@ -1,16 +1,18 @@
 <!doctype html>
 <html>
-	<head>
-		
- 	</head>
  	<body>
+		<!-- headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> Basic Setup </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example1.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px"> Default set up with user interaction </div>
+
+		<!-- The div to hold the panel -->
+   	 	<div id="the-track" style="height:200px;width:500px;border:1px solid black;"> </div>
+		
 		<!-- only necessary for browsers which do not support es6-->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
 		<!-- contains all the js and css necessary for the browser-->
    	 	<script src="../dist/mlv_panel.js" ></script>
-		
-		<!-- The div to hold the panel -->
-   	 	<div id="the-track" style="height:200px;width:500px;border:1px solid black;"> </div>
 
 		<script>
 			//allow user interaction
@@ -23,7 +25,7 @@
 			var panel1 = new MLVPanel(
 				[
 					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw"},
-					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/refGene.hg19.bed.gz"}
 				],
 				panel_config
 			);
@@ -32,7 +34,7 @@
 			//allow user to change track attributes
 			panel1.addLegend();
 			//go to a genomic position
-			panel1.update("chr16",100000,200000);	
+			panel1.update("chr16",100000,200000);
 		</script>
  	 </body>
 </html>

@@ -12,6 +12,7 @@ module.exports = {
   	plugins: [
   		new webpack.ProvidePlugin({
 			Zlib:path.resolve(__dirname,"src/vendor/zlib_and_gzip.min.js"),
+			//The following can be removed if you already have imported jquery
 			$: "jquery",
 			jQuery: "jquery"
   		})
@@ -19,6 +20,7 @@ module.exports = {
 
 	module:{
       	rules:[
+			//This can be removed if you don't want to support older browsers
       		{
         			test : /\.js/,
 	        		exclude: path.resolve(__dirname,'src/vendor/zlib_and_gzip.min.js'),
@@ -36,7 +38,11 @@ module.exports = {
         			loader:"file-loader",
         			options:{
           				name:'[name].[ext]',
-          				outputPath:'images/'
+					//the location in the dist folder
+          				outputPath:'images',
+					//the location where the css will look for images
+					publicPath:'images'
+					
                  	}
 			}
     		]

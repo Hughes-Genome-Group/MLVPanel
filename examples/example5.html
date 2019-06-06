@@ -2,67 +2,77 @@
 <html>
 	<head>
 	    <!-- css files required -->
-		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
-		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
 		<link rel="stylesheet" href="./slickgrid/css/slick.default.theme.css">
 		<link rel="stylesheet" href="./slickgrid/css/slick.grid.css">
 
   	</head>
   	<body>
-     <table width="100%">
-  <tr>
-    <td valign="top" width="50%">
-      <div id="myGrid" style="width:600px;height:500px;"></div>
-    </td>
-    <td valign="top">
-    
-    </td>
-  </tr>
-</table>
-
-  	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
-    <script type = "module">
-    	import '../src/vendor/jquery.min.js';
-		import '../src/vendor/jquery-ui.min.js';
-		//import any modules required
-    	import {MLVPanel} from '../src/panel.js';
-		import {SlickGrid} from './slickgrid/slick.grid.js';
 
 
-  		let  grid = null;
-  		let tracks = [{url:"http://martindev1.molbiol.ox.ac.uk/tracks/examples/peaks.bw",color:"#8e0000"}];
-        let thumbnail_column = {id: "thumbnail", name: "Thumbnail",width:100,
-        		asyncPostRender:function(cellNode, row, datacontext, colDef){
-            		let item = grid.getDataItem(row);
-            		let p = new MLVPanel(tracks,{div:$(cellNode)})
-            		p.setBufferLevel(0);
-            		p.update(item.chr,item.start,item.end);
-        }}
-  		var columns = [
-  			thumbnail_column,
-    		{id: "chr", name: "Chr", field: "chr"},
-    		{id: "start", name: "Start", field: "start"},
-    		{id: "end", name: "End", field: "end"}
-  		];
-  		var options = {
-    		enableCellNavigation: true,
-    		enableColumnReorder: false,
-    		rowHeight:50,
-    		enableAsyncPostRender: true
-  		};
-  		$(function () {
-    		var data = [];
-    		for (var i = 0; i < 500; i++) {
-    			let st = Math.round(Math.random() * 5000000)+1000000
-      			data[i] = {
-        			chr:"chr16",
-        			start: st,
-        			end:st+20000
-      			};
-    		}
-    	grid = new SlickGrid("#myGrid", data, columns, options);
-  })
-</script>
+  		<!-- Headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> Highlight a Region </h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example5.html">View Source</a>
+		<div style="width:600px;margin-bottom:10px">
+			 The table (<a href="https://github.com/6pac/SlickGrid/wiki">SlickGrid<a>)  is filled with random
+			 genomic locations. When each thumbnail view is visible, a minimal MLVPanel is attached
+			 and updated to the location in specified in the table row
+
+
+		</div>
+
+
+		<!-- div to house the table -->
+		<div id="myGrid" style="width:600px;height:400px;"></div>
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   		<script src="../dist/mlv_panel.js" ></script>
+
+		<!-- All the slickgrid javascript !-->
+    	<script src="./slickgrid/slick.core.js"></script>
+    	<script src="./slickgrid/slick.grid.js"></script>
+    	<script src="./slickgrid/slick.dataview.js"></script>
+
+   		<script>
+			var  grid = null;
+			var tracks = [{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw",color:"#8e0000"}];
+			var thumbnail_column = {id: "thumbnail", name: "Thumbnail",width:100,
+					//called when table cell rendered
+					asyncPostRender:function(cellNode, row, datacontext, colDef){
+						//get genomic location
+						var item = grid.getDataItem(row);
+						//create panel passing the table cell div (cellNode) in the panel config
+						var p = new MLVPanel(tracks,{div:$(cellNode)});
+						//no scolling/zooming therefore no buffering required
+						p.setBufferLevel(0);
+						//go the position specified in the row
+						p.update(item.chr,item.start,item.end);
+			}}
+			var columns = [
+				thumbnail_column,
+				{id: "chr", name: "Chr", field: "chr"},
+				{id: "start", name: "Start", field: "start"},
+				{id: "end", name: "End", field: "end"}
+			];
+			var options = {
+				enableCellNavigation: true,
+				rowHeight:50,
+				enableAsyncPostRender: true
+			};
+			$(function () {
+				//fill the table with 1000 random genomic locations
+				var data = [];
+				for (var i = 0; i < 1000; i++) {
+					let st = Math.round(Math.random() * 5000000)+1000000
+					data[i] = {
+						chr:"chr16",
+						start: st,
+						end:st+20000
+					};
+				}
+				grid = new Slick.Grid("#myGrid", data, columns, options);
+  			})
+		</script>
     		
   	</body>
 </html>

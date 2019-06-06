@@ -1,31 +1,4 @@
 import {MLVTrack} from "./tracks.js";
-$.fn.extend({
-  dialogFix: function() {
-    function _getElementHeight(el){
-	let height= el.css("height");
-	if (!height){
-		return 0;
-	}
-	let a= parseInt(height.replace("px",""));
-	return a;
-	
-}
-    return this.each(function() {
-      $(this).parent().find(".ui-dialog-titlebar-close").css("font-size","0px")
-      $(this).on("dialogresize dialogresizestop",function(e,ui){
-
-    	  let th=$(this);
-    	  let pa= th.parent();
-	      let title_height =_getElementHeight(pa.find(".ui-dialog-titlebar"));
-	      let button_height = _getElementHeight(pa.find(".ui-dialog-buttonpane"));
-	       let pa_height=_getElementHeight(pa);  
-	       let h = (pa_height-title_height-button_height-10)+"px"   	   
-           th.css({width:"auto",height:h});  
-      });
-
-    });
-  }
-});
 
 
 class MLVTrackDialog{
@@ -225,15 +198,15 @@ class MLVTrackDialog{
         		this.height_div.hide();
         	}
         }
-        else
+ 
 
-       // }
-
-       
+   
 
        
 
-    if (this.config.format==="feature" || this.config.type==="bam"){
+       
+
+   	 if (this.config.format==="feature" || this.config.type==="bam"){
 
     let feature_div=  $("<div>").append("<label>Feature Height</label><br>");
     self.feature_height_slider=$("<div>").slider({

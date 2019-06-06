@@ -41,6 +41,9 @@ class FeatureSource{
     constructor(config) {
 
         this.config = config || {};
+        if (this.config.no_headers){
+            this.header=true;
+        }
 
         this.sourceType = (config.sourceType === undefined ? "file" : config.sourceType);
 
