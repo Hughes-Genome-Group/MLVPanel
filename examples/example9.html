@@ -1,51 +1,114 @@
 <!doctype html>
 <html>
- 	<head>
- 		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
-		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
-	</head>
+
 	<body>
-		<div id="the-track" style="height:500px;width:700px;border:1px solid black;"> </div>
-		<script src="../src/vendor/zlib_and_gzip.min.js"></script>
-		<script type = "module">
-			import '../src/vendor/jquery.min.js';
-			import '../src/vendor/jquery-ui.min.js';
-			import {MLVPanel} from '../src/panel.js';
-			import {TiledImageTrack} from '../src/extra/tiled_image_track.js'
+		<!-- headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px">Tiled Iamge Track</h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example9.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px"> 
+			Simple track showing HiC which simply scales images
+		</div>
+		
+		<!-- The div to house the panel -->
+		<div id="the-track" style="height:300px;width:700px;border:1px solid black;"> </div>
+		
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
 
+   	 	<script>
 
-					
+			class TiledImageTrack extends MLVTrack{
+
+				constructor(config){
+					//hard code image urls (just an example)
+					config.images={
+							 "chr16":[
+							[0,4000000,"images/chr16_0_4000000.png"],
+							[4000001,8000000,"images/chr16_4000000_8000000.png"],
+							[8000001,12000000,"images/chr16_8000000_12000000.png"],
+
+						]
+					}
+					super(config);
+				}
+
+				getFeatures(chr,bpStart,bpEnd,force,data){
+					//get the required images 
+					//only for demonstration - more efficint retreival mechanism required
+					let locations = this.config.images[chr];
+					let promises= [];
+					for (let loc of locations){
+						if (loc[0]>bpEnd){
+							break;
+						}
+						if (loc[1]<bpStart){
+							continue;
+						}
+						promises.push(getImagePromise(loc));
+					}
+					return Promise.all(promises);
+				}
+
+				drawFeatures(options) {
+					//scale and draw the images
+					let bpEnd = options.bpStart + options.pixelWidth * options.bpPerPixel + 1;
+					let height=0;
+					for (let image of options.features){
+						let x1= (image.start-options.bpStart)/options.bpPerPixel;
+						x1=x1<0?0:x1;
+						let x_clip=0;
+						if (options.bpStart>image.start){
+							x_clip=((options.bpStart-image.start)/(image.end-image.start))*image.width;
+						}
+						let x_clip2=image.width
+						if (image.end>bpEnd){
+							x_clip2 = image.width-(((image.end-bpEnd)/(image.end-image.start))*image.width);
+						}
+							   let x2 = options.pixelWidth;
+						if (image.end<bpEnd){
+							x2  = options.pixelWidth-((bpEnd-image.end)/options.bpPerPixel);
+						}
+
+						options.context.drawImage(image,x_clip,0,x_clip2-x_clip,image.height,x1,options.top,x2-x1,image.height);
+						height=image.height;
+					}
+					this.bottom = options.top+height;
+					return this.bottom;
+				}
+			}
+
+			//helper function which returns a promise when the image loads
+			function getImagePromise(loc){
+				return new Promise(function (fulfill, reject) {
+						let image = new Image();
+						image.start=loc[0];
+						image.end=loc[1];
+						image.onload = function () {
+								fulfill(image);
+						};
+						image.src =loc[2]; 
+				});       
+			}
+			
+			//register the track
+			MLVTrack.custom_tracks['tiled_image_track']=TiledImageTrack;
 
 			//now create panel and add the track
 			let panel_config={
 				div:"the-track",
 				allow_user_drag:true,
 				allow_user_zoom:true,
-				allow_user_feature_click:true,
-				allow_user_feature_over:true
+				ruler_track:true,
 			}
-
-
 			let panel1 = new MLVPanel(
 				[
-					{url:"/genes/sara_molbiol_ox/public/lanceotron/m4V9aGs1ZPZYN5iCJqvFYUnOv/peaks.bb",displayMode:"SQUISHED"}
-					//{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",scale:"dynamic",color:"blue",short_label:"ATAC Peaks",discrete:true,height:100,group:"g2",track_id:"blue"},
-					//only url and type is required
-					//{url:"",type:"tiled_image_track",short_label:"HiC pred"},
-					//{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz",displayMode:"EXPANDED"}
-					
-
+					{type:"tiled_image_track"}
 				],
 				panel_config
 			);
-			panel1.addRulerTrack();
-			panel1.addLegend();
-			  panel1.addListener("feature_clicked",function(track,feature,e,type){
-  				console.log(feature);
- 			 });
- 			 panel1.setBufferLevel(0);
-
-			panel1.update("chr1",9260-500,15500);
+			panel1.update("chr16",2000000 ,4000000); 
 		</script>
   	</body>
 </html>

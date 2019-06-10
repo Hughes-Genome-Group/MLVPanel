@@ -39,95 +39,17 @@ const MAX_GZIP_BLOCK_SIZE = (1 << 16);
      */
 class FeatureSource{
     constructor(config) {
-
         this.config = config || {};
-        if (this.config.no_headers){
-            this.header=true;
-        }
-
-        this.sourceType = (config.sourceType === undefined ? "file" : config.sourceType);
-
-        if (config.sourceType === "ga4gh") {
-            this.reader = new igv.Ga4ghVariantReader(config);
-        } else if (config.sourceType === "immvar") {
-            this.reader = new igv.ImmVarReader(config);
-        } else if (config.type === "eqtl") {
-            if (config.sourceType === "gtex-ws") {
-                this.reader = new igv.GtexReader(config);
-            }
-            else {
-                this.reader = new igv.GtexFileReader(config);
-            }
-        } else if (config.sourceType === "bigquery") {
-            this.reader = new igv.BigQueryFeatureReader(config);
-        }
-        else {
-            // Default for all sorts of ascii tab-delimited file formts
-            this.reader = new FeatureFileReader(config);
-        }
-        this.visibilityWindow = config.visibilityWindow;
-
     }
 
 
     getFileHeader() {
-
-        var self = this,
-            maxRows = this.config.maxRows || 500;
-
+        this.is_indexed=true;  
         return new Promise(function (fulfill, reject) {
-
-            if (self.header) {
-                fulfill(self.header);
-            } else {
-                if (typeof self.reader.readHeader === "function") {
-
-                    self.reader.readHeader().then(function (header) {
-                        self.is_indexed=true;
-                        // Non-indexed readers will return features as a side effect.  This is an important,
-                        // if unfortunate, performance hack
-
-                        if(header) {
-                            var features = header.features;
-                            if (features) {
-
-                                if ("gtf" === self.config.format || "gff3" === self.config.format || "gff" === self.config.format) {
-                                    features = (new igv.GFFHelper(self.config.format)).combineFeatures(features);
-                                }
-
-                                // Assign overlapping features to rows
-
-                                packFeatures(features, maxRows);
-                                self.featureCache = new FeatureCache(features);
-
-                                // If track is marked "searchable"< cache features by name -- use this with caution, memory intensive
-                                if (self.config.searchable) {
-                                    self.addFeaturesToDB(features);
-                                }
-                            }
-                        }
-
-                        if (header && header.format) {
-                            self.config.format = header.format;
-                        }
-
-                        fulfill(header);
-                    }).catch(reject);
-                }
-                else {
-                    fulfill(null);
-                }
-            }
+            fulfill();        
         });
-    }
+    }   
 
-    static addFeaturesToDB(featureList) {
-        featureList.forEach(function (feature) {
-            if (feature.name) {
-                igv.browser.featureDB[feature.name.toUpperCase()] = feature;
-            }
-        })
-    }
 
     getFeatures(chr,start,end,force,data){
       
@@ -146,6 +68,7 @@ class FeatureSource{
         });
         
     }
+
     /**
      * Required function fo all data source objects.  Fetches features for the
      * range requested and passes them on to the success function.  Usually this is
@@ -155,7 +78,6 @@ class FeatureSource{
      * @param bpStart
      * @param bpEnd
      */
-
     _getFeatures(chr, bpStart, bpEnd,force,data) {
         if (bpStart===0){
             bpStart=1;
@@ -169,7 +91,6 @@ class FeatureSource{
             var genomicInterval = new GenomicInterval(chr, bpStart, bpEnd),
                 featureCache = self.featureCache,
                 maxRows = self.config.maxRows || 500;
-           
             let ranges_to_get=false;
             if (!featureCache){
                 ranges_to_get={all:[bpStart,bpEnd]};
@@ -181,159 +102,69 @@ class FeatureSource{
             }
             if (!ranges_to_get) {
                 fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
-
             }
-            else {
-         
-             let promises=[];
-             let p_types=[];
-             for (let type in ranges_to_get){
+            else{
+                let promises=[];
+                let p_types=[];
+                for (let type in ranges_to_get){
                     let range= ranges_to_get[type];
-                     promises.push(self.retrieveFeatures(chr, range[0], range[1],force,data));
-                     p_types.push([type,ranges_to_get[type]]);
-             }
-            
-
-            
-              Promise.all(promises).then(
-
+                    promises.push(self.retrieveFeatures(chr, range[0], range[1],force,data));
+                    p_types.push([type,ranges_to_get[type]]);
+                }
+                Promise.all(promises).then(
                     function (all_features) {
-                       
                         let existing_features=[];
                         if (self.featureCache){
                             existing_features=self.featureCache.allFeatures();//featureCache.allFeatures(chr,self.featureCache.range.start,self.featureCache.range.end);
                         }
-                        console.log("exisiting features:"+existing_features.length)
-                    
                         let index=0;
-                       
                         for (let featureList of all_features){
                             if (featureList === null){
                                 featureList=[];
-                            }
-                            
-                          /*  if (p_types[index][0]==="all"){
-                                new_range.start=p_types[index][1][0];
-                                new_range.end=p_types[index][1][1]
-                                if (featureList.length>0){
-                                   let st = featureList[0].start;
-                                   let end =featureList[featureList.length-1].end;
-                                   if (end>new_range.end){
-                                       new_range.end=end;
-                                   } 
-                                   if (st<new_range.start){
-                                       new_range.start=st;
-                                   }      
+                            }                            
+                            if (p_types[index][0]==="left"){
+                                let end = p_types[index][1][1]; 
+                                //remove any already retieved  
+                                let splice=0;
+                                for (let n=featureList.length-1;n>=0;n--){
+                                    if (featureList[n].end< end){
+                                        break;
+                                    }
+                                    splice++;
                                 }
-                               */
-                               if (p_types[index][0]==="left"){
-                                   let end = p_types[index][1][1];
-                                   
-                                   //remove any already retieved
-                                  
-                                   let splice=0;
-                                   for (let n=featureList.length-1;n>=0;n--){
-                                       
-                                        if (featureList[n].end< end){
-                                            break;
-                                        }
-                                        splice++;
-                                   }
-                                   if (splice!==0){
-                                       featureList.splice(-splice)
-                                   }
-                                   console.log(":::!!"+featureList.length)
-                                   
+                                if (splice!==0){
+                                    featureList.splice(-splice)
+                                }
 
-                                     
-                               
-                              }
-                              if (p_types[index][0]==="right"){
-                                  let start=p_types[index][1][0];
-                                
-                                   
-                                   //remove any already retieved
-                                   let n=0
-                                   for (n=0;n<featureList.length;n++){
-                                       
-                                        if (featureList[n].start> start){
-                                            break;
-                                        }
-                                   }
-                                   if (n!==0){
-                                       featureList.splice(0,n)
-                                   }
-                             }
-                            
+                            }
+                            if (p_types[index][0]==="right"){
+                                let start=p_types[index][1][0];
+                                //remove any already retieved
+                                let n=0
+                                for (n=0;n<featureList.length;n++){
+                                    if (featureList[n].start> start){
+                                        break;
+                                    }
+                                }
+                                if (n!==0){
+                                    featureList.splice(0,n)
+                                }
+                            }
                             index++;
-
-                            console.log("new_features:"+featureList.length)
-                            if (featureList && typeof featureList.forEach === 'function') {  // Have result AND its an array type
-
-                                var isIndexed =
-                                self.reader.indexed ||
-                                self.config.sourceType === "ga4gh" ||
-                                self.config.sourceType === "immvar" ||
-                                self.config.sourceType === "gtex" ||
-                                self.config.sourceType === "bigquery"||
-                                self.config.sourceType === "custom";
-
-                            // TODO -- COMBINE GFF FEATURES HERE
-                            // if(self.isGFF) featureList = combineFeatures(featureList);
-                                if ("gtf" === self.config.format || "gff3" === self.config.format || "gff" === self.config.format) {
-                                    featureList = (new igv.GFFHelper(self.config.format)).combineFeatures(featureList);
-                                }
-                                existing_features=existing_features.concat(featureList);
-                                console.log("all features:"+existing_features.length)
-
-                            }
+                            existing_features=existing_features.concat(featureList);
                         }
-
-            
-
-                    
                         let gi = self.featureCache?self.featureCache.range:genomicInterval;
-
-                        self.featureCache = isIndexed ?
-                                new FeatureCache(existing_features, gi) :
-                                new FeatureCache(featureList);   // Note - replacing previous cache with new one
-
-
-                            // Assign overlapping features to rows
-                            FeatureSource.packFeatures(existing_features, maxRows);
-
-                            // If track is marked "searchable"< cache features by name -- use this with caution, memory intensive
-                            if (self.config.searchable) {
-                                addFeaturesToDB(existing_features);
-                            }
-
-                            // Finally pass features for query interval to continuation
-                          /*  let alr ={};
-                            let f= self.featureCache.allFeatures();
-                            for (let i of f){
-                                if (alr[i.id]){
-                                    //console.log(i);
-                                    //console.log(alr[i.id]);
-                                }
-                                alr[i.id]=i;
-                            }
-                         */
-                        
-                            fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
-                      
-                        
-                      
-
-                    }).catch(function(error){
-                        reject(error);
-                    });
+                        self.featureCache = new FeatureCache(existing_features, gi);
+                        FeatureSource.packFeatures(existing_features, maxRows); 
+                        fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
+                }).catch(function(error){
+                    reject(error);
+                });
             }
         });
     }
 
-    retrieveFeatures(chr,start,end){
-        return this.reader.readFeatures(chr,start,end);
-    }
+
 
 
     static packFeatures(features, maxRows) {
@@ -404,6 +235,28 @@ class FeatureSource{
 
 }
 
+class TabixBedFeatureSource extends FeatureSource{
+    constructor(config,decode_function){
+        super(config);
+        this.reader = new FeatureFileReader(config,decode_function);
+    }
+
+    retrieveFeatures(chr,start,end){
+        return this.reader.readFeatures(chr,start,end);
+    }
+
+    getFileHeader() {
+        var self = this;
+        return new Promise(function (fulfill, reject) {
+            self.reader.readHeader().then(function () {
+                self.is_indexed=true;  
+                fulfill();
+             }).catch(reject);
+                
+        });
+    }   
+}
+
 class BigBedFeatureSource extends FeatureSource{
     constructor(config,decode_function){
 		config.sourceType="gtex";
@@ -430,7 +283,7 @@ const F_MAX_GZIP_BLOCK_SIZE = (1 << 16);
      * @constructor
      */
 class FeatureFileReader{
-    constructor(config) {
+    constructor(config,dec_function) {
 
         this.config = config || {};
 
@@ -450,7 +303,7 @@ class FeatureFileReader{
 
         this.format = config.format;
 
-        this.parser = this.getParser(this.format, config.decode);
+        this.parser = this.getParser(this.format, dec_function);
     };
 
 
@@ -730,20 +583,33 @@ const gffNameFields = ["Name", "gene_name", "gene", "gene_id", "alias", "locus"]
      * A factory function.  Return a parser for the given file format.
      */
 class FeatureParser{
-    constructor(format, decode, config) {
+    constructor(format, decode_func, config) {
 
         var customFormat;
 
         this.format = format;
         this.nameField = config ? config.nameField : undefined;
-        this.skipRows = 0;   // The number of fixed header rows to skip.  Override for specific types as needed
+        this.skipRows = 0;   // The number of fixed header rows to skip.  Override for specific types as neede
 
-        if (decode) {
-            this.decode = decode;
+        if (decode_func) {
+            this.delimiter = /\s+/;
+
+            this.decode =function(tokens,ignore){
+                let feature={chr:tokens[0],start:parseInt(tokens[1]),end:parseInt(tokens[2])}
+                decode_func(tokens.slice(3),feature);
+                return feature;
+            } ;
+        }
+        else{
+            this.decode = FeatureParser.decodeBed;
+            this.delimiter = /\s+/;
+
         }
 
+                                       
 
-        switch (format) {
+
+       /* switch (format) {
             case "narrowpeak":
             case "broadpeak":
             case "peaks":
@@ -784,7 +650,7 @@ class FeatureParser{
                 break;
             default:
 
-               /* customFormat = igv.browser.getFormat(format);
+               customFormat = igv.browser.getFormat(format);
                 if (customFormat !== undefined) {
                     this.decode = decodeCustom;
                     this.format = customFormat;
@@ -792,12 +658,10 @@ class FeatureParser{
                 }
 
                 else {
-                                                */
-                    this.decode = FeatureParser.decodeBed;
-                    this.delimiter = /\s+/;
+                
                // }
 
-        }
+        }*/
 
     };
 
@@ -866,6 +730,7 @@ class FeatureParser{
             if (tokens.length < 1) continue;
 
             feature = this.decode(tokens, wig);
+
 
             if (feature) {
                 if (allFeatures.length < maxFeatureCount) {
@@ -2189,4 +2054,4 @@ class FastaSequence{
 }
 
 
-export {FeatureSource,FastaSequence,BigBedFeatureSource}
+export {FeatureSource,FastaSequence,BigBedFeatureSource,TabixBedFeatureSource}

@@ -1008,7 +1008,7 @@ class MLVPanel {
     	 	let track = this.tracks[t];
     	 	if (co.y>track.top && co.y<track.bottom){
     	 		return {track:track,
-    	 				feature:track.getFeatureAt(gl,this.chr,co,this.bpPerPixel)
+    	 				feature:track.getFeatureAt(gl,this.chr,co,this.bpPerPixel,this.ctx)
     	 		};
     	 	}		
     	 }

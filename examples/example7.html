@@ -48,9 +48,12 @@
 			}
 			
 
-			class CustomAnnotationTrack extends MLVBedTrack{
+			class CustomGeneTrack extends MLVBedTrack{
 				constructor(config){
 					config.format="feature";
+					if (!config.featureHeight){
+						config.featureHeight=12;
+					}
 					super(config);
 				}
 				//just overide setFeaturSource with our new feature source
@@ -60,7 +63,7 @@
 
 			}
 			//register the new track type
-			MLVTrack.custom_tracks['custom_annotation']=CustomAnnotationTrack;
+			MLVTrack.custom_tracks['custom_gene']=CustomGeneTrack;
 
     		//allow user interaction
 			var panel_config={
@@ -78,7 +81,7 @@
 						url:"http://martindev1.molbiol.ox.ac.uk/meths/hg19/get_genes",
     					short_label:"Ref Genes",
     					//specify our new type
-    					type:"custom_annotation",
+    					type:"custom_gene",
     					displayMode:"EXPANDED"
     				}
 				],

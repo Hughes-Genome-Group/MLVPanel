@@ -144,31 +144,7 @@ class igvxhr {
             };
 
             xhr.onerror = function (event) {
-               
-                if (false) {
-                    if (total_retries>10){
-                        return;
-                    }
-                    total_retries++;
-                    if (! options.retries){
-                        options.retries=0
-                    }
-                    options.retries++;
-                    //options.sendData = "url=" + url;
-                    //options.crossDomainRetried = true;
-                    /*if (options.retries<3){
-
-                        igvxhr.loadArrayBuffer(url, options).then(fulfill);
-                    }
-                    */
-                    // else {
-                    handleError("Error accessing resource: " + url + " Status: " + xhr.status);
-                    return;
-               // }
-                }
-                else {
-                    handleError("Error accessing resource: " + url + " Status: " + xhr.status);
-                }
+               handleError("Error accessing resource: " + url + " Status: " + xhr.status);    
             }
 
 

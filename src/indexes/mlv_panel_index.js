@@ -5,11 +5,12 @@ import "../vendor/jquery-ui.min.js";
 import "../vendor/jquery-ui-fixes.js";
 import {MLVPanel} from "../panel.js";
 import {MLVTrack,MLVBedTrack,MLVBigBedTrack} from "../tracks.js";
-import {FeatureSource} from "../feature.js"
+import {FeatureSource,BigBedFeatureSource} from "../feature.js"
 window.MLVPanel = MLVPanel;
 window.MLVTrack= MLVTrack;
 window.MLVBedTrack=MLVBedTrack;
 window.MLVBigBedTrack=MLVBigBedTrack;
 window.FeatureSource=FeatureSource;
+window.BigBedFeatureSource=BigBedFeatureSource;
 window.$=$;
 window.jQuery=$;

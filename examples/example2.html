@@ -14,6 +14,7 @@
      	<script type = "module">
 			import '../src/vendor/jquery.min.js';
 			import '../src/vendor/jquery-ui.min.js';
+			import '../src/vendor/jquery-ui-fixes.js';
 			//import any modules required
 			import {MLVPanel} from '../src/panel.js';
     		//allow user interaction and have ruler track and legend
@@ -28,8 +29,8 @@
 			//minimal config, only track urls given
 			var panel1 = new MLVPanel(
 				[
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw"},
-					{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw"},
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/refGene.hg19.bed.gz"}
 				],
 				panel_config
 			);

@@ -27,7 +27,7 @@
 
 
 import {BWSource} from "./bigwig.js";
-import {FeatureSource,FastaSequence,BigBedFeatureSource} from "./feature.js";
+import {FeatureSource,FastaSequence,BigBedFeatureSource,TabixBedFeatureSource} from "./feature.js";
 
 
 class MLVTrack{
@@ -424,7 +424,7 @@ class MLVBedTrack extends MLVTrack{
 	}
 
 	_setFeatureSource(){
-		this.feature_source= new FeatureSource(this.config)
+		this.feature_source= new TabixBedFeatureSource(this.config)
 	}
 
 	setFilterFunction(func){
@@ -726,7 +726,6 @@ class MLVBedTrack extends MLVTrack{
 
                         // If row number is specified use it
                         if ((row === undefined || feature.row === undefined || row === feature.row)&&  feature.display) {
-                        	console.log(feature.name);
                            return feature;
 
                         }

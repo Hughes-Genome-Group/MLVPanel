@@ -67,13 +67,8 @@ let loadBamIndex = function (indexURL, config, tabix) {
                 }
 
                 if (tabix) {
-                	  console.log(Zlib);
                     var inflate = new Zlib.Zlib.Gunzip(new Uint8Array(arrayBuffer));
                     arrayBuffer = inflate.decompress().buffer;
-                   
-                   /*let r =pako.inflate(new Uint8Array(arrayBuffer));
-
-                    arrayBuffer =r.buffer;*/
                 }
 
                 parser = new BinaryParser(new DataView(arrayBuffer));

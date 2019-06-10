@@ -1,146 +1,146 @@
 <!doctype html>
 <html>
-	<head>
-	    <!-- css files required -->
-		<link rel="stylesheet" href="../css/jquery-ui-bootstrap/jquery-ui-1.10.3.custom.css">
-		<link rel="stylesheet" href="../css/fa-5.5.0/all.css">
-  	</head>
-  	<body>
-  		<!-- the div to hold the track -->
+
+	<body>
+		<!-- headers -->
+		<h2 style= "display:inline-block;margin-bottom:4px"> BigInteract Track</h2>
+		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example8.html">View Source</a>
+		<div style="width:500px;margin-bottom:10px"> 
+			A Track which takes it's source from a <a href="https://genome.ucsc.edu/goldenPath/help/interact.html"> BigInteract Track </a>.
+			Mouse over the circles to get information about the interactions
+
+		</div>
+		
+		<!-- The div to house the panel -->
 		<div id="the-track" style="height:300px;width:700px;border:1px solid black;"> </div>
 
-  <div id="feature-tooltip" style="position:absolute;display:none;background-color:yellow"></div>
-
-		<!--legacy script hard to import with es6 -->
-     	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
-     	<script type = "module">
-    		import '../src/vendor/jquery.min.js';
-			import '../src/vendor/jquery-ui.min.js';
-			//import any modules required
-    		import {MLVPanel} from '../src/panel.js';
-    		import {MLVTrack,MLVBedTrack} from '../src/tracks.js';
-    		import {FeatureSource} from '../src/feature.js';
-    		import {BigInteractTrack} from '../src/big_interact_track.js';
-    		class CustomFeatureSource extends FeatureSource{
-	constructor(config){
-		config.sourceType="custom";
-		super(config);
-		this.header=true;
-	}
-
-	retrieveFeatures(chr,bpStart,bpEnd,force,data){
-		return new Promise(function (fulfill, reject) {
-			let url = "/genes/meths/hg19/get_genes/"+chr+"/"+bpStart+"/"+bpEnd;
-			fulfill([
-				{start:40575709,end:40582709,chr:"chr12",type:"deletion",desc:"deletion of XYZ"},
-				{start:40590000,end:40590001,chr:"chr12",type:"insertion",length:20000,desc:"insertion of XYZ"},
-				{start:40600000,end:40601000,chr:"chr12",type:"deletion",desc:"deletion of XYZ"},
-				{start:40640000,end:40640001,chr:"chr12",type:"insertion",length:10000,desc:"insertion of XYZ"},
-			]);
+		<!-- The tooltip -->
+   	 	<div id="feature-tooltip" style="position:absolute;display:none;background-color:yellow"></div>
 		
-	      });   	
-	}
-	
-}
+		<!-- only necessary for browsers which do not support es6-->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.15/browser-polyfill.min.js"></script>
+		<!-- contains all the js and css necessary for the browser-->
+   	 	<script src="../dist/mlv_panel.js" ></script>
 
-class CustomDrawTrack extends MLVBedTrack{
-	constructor(config){
-		config.format="feature";
+   	 	<script>
+   	 		//this function adds to the feature from the track data
+   	 		//In this case just source and target data are added
+			let decode_function= function(tokens,feature){
+				feature.sourceStart=parseInt(tokens[6]);
+				feature.sourceEnd=parseInt(tokens[7]);
+				feature.targetStart=parseInt(tokens[11]);
+				feature.targetEnd=parseInt(tokens[12]);
+			};
 
-		super(config)
-		this.config.featureHeight=40;
-	
-	}
-	_setFeatureSource(){
-		this.feature_source= new CustomFeatureSource(this.config);
-	}
+			
+			class BigInteractTrack extends MLVBedTrack{
+				constructor(config){
+					config.format="feature";
+					config.featureHeight=30;
+					super(config);
+					//this will store any features that are drawn
+					this.feature_store=[];
+				}
 
-	drawFeatures(options){
+				_setFeatureSource(){
+					//create the feature source with the decode funnction
+					this.feature_source = new BigBedFeatureSource(this.config,decode_function);	
+				}
+
+				//we are only interested in the intercation circles in the middle
+				//of the features
+				getFeatureAt(gl, chr, coord, bpPerPixel){
+					let tolerance = 4*bpPerPixel
+					//is mouse over top part of track
+					if (coord.y>this.top && coord.y<this.top+7){
+						/*loop through features drawn to see if mouse is
+						over any circles.Not very efficient, but only
+						loops through features drawn, not all those in 
+						the cache*/ 
+						for (let f of this.feature_store){
+							let middle =f.start+(f.end-f.start)/2;
+							if (gl>middle-tolerance && gl<middle+tolerance){
+								return f;
+							}
+						}
+					}
+					return null;
+
+
+				}
+
+				drawFeatures(options){
+					//clear the feature store
+					this.feature_store=[];
+					//needed to get the curve right
+					this.fudge= this.config.featureHeight/3;
+					return super.drawFeatures(options)
+
+				}
+
+				//draw the curves with the circle in th middle
+				renderFeature(feature, coord,ctx,info){
+					let q = coord.pw/4;
+					//remember any features drawn
+					this.feature_store.push(feature);
+					//draw the curve
+					ctx.moveTo(coord.px,coord.py+coord.h);
+					ctx.bezierCurveTo(coord.px+q,coord.py-this.fudge,coord.px1-q,coord.py-this.fudge,coord.px1,coord.py+coord.h);
+					ctx.stroke();
+					//draw the center circle
+					ctx.beginPath();
+					ctx.arc(coord.px+coord.pw/2,coord.py,5,0, 2 * Math.PI, false);
+					ctx.stroke();
+				}
+			}
+			
+			//register the track
+			MLVTrack.custom_tracks["big_interact"]=BigInteractTrack;
+
+
+
 		
-			let ctx = options.context;
-			ctx.beginPath();
-        	ctx.moveTo(0,options.top+5);
-        	ctx.lineTo(options.pixelWidth,options.top+5);
-        	ctx.strokeStyle="black";
-        	ctx.lineWidth=3;
-        	ctx.stroke();
-        	ctx.lineWidth=1;
-		
-        let a= super.drawFeatures(options);
-        return options.top+40;
-
-	}
-	renderFeature(feature,coord,ctx,info){
-		ctx.fillStyle = this.config.color;
-		if (feature.type === "insertion"){
-			let len = feature.length/info.bpPerPixel;
-			ctx.rect(coord.px-(len/2),coord.py,len,20)
-        	ctx.beginPath();
-        	ctx.moveTo(coord.px-(len/2),coord.py+25);
-        	ctx.lineTo(coord.px+1,coord.py);
-        	ctx.lineTo(coord.px+(len/2),coord.py+25)
-		//ctx.ellipse(coord.px+coord.pw/2, coord.py+coord.h/2, coord.h/2,coord.pw/2, Math.PI/2,0,Math.PI*2,true);
-
-			ctx.stroke();
-			ctx.beginPath();
-		//ctx.rect(coord.px,coord.py,coord.pw,coord.h);
-			ctx.rect(coord.px-(len/2),coord.py+25,len,12);
-			ctx.fill();
-		}
-		else{
-			ctx.fillStyle="white";
-			ctx.beginPath();
-		//ctx.rect(coord.px,coord.py,coord.pw,coord.h);
-			ctx.rect(coord.px,coord.py-2,coord.pw,4);
-			ctx.fill();
-		}
-	}
-
-
-}
-MLVTrack.custom_tracks['custom_draw_track']=CustomDrawTrack;
-
-    		//allow user interaction
-			var panel_config={
+			//now create panel and add the track
+			let panel_config={
 				div:"the-track",
 				allow_user_drag:true,
 				allow_user_zoom:true,
-				allow_user_feature_click:true,
-				allow_user_feature_over:true
+				allow_user_feature_over:true,
+				ruler_track:true,
+				legend:true
 			}
-			//minimal config, only track urls given
-			var panel1 = new MLVPanel(
-				[	{url:"http://martindev1.molbiol.ox.ac.uk/tracks/inter.bb",type:"big_interact",format:"feature",short_label:"interactions"},
-				 	{url:"hhh",type:"custom_draw_track",format:"feature",short_label:"Compare To Ref"},
-					{url:"http://martindev1.molbiol.ox.ac.uk/tracks/source.bw",discrete:true,color:"blue"}//,
-					//{url:"https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg19/genes/refGene.hg19.bed.gz"}
+
+
+			let panel1 = new MLVPanel(
+				[
+					{
+						url:"https://lanceotron.molbiol.ox.ac.uk/tracks/inter.bb",
+						type:"big_interact",short_label:"interactions"
+					}
+
 				],
 				panel_config
 			);
-			//could also use {type:"track"} in config
-			panel1.addRulerTrack();
-			//allow user to change track attributes
-			panel1.addLegend();
 
 			panel1.addListener("feature_over",function(track,feature,e,type){
-	if (type==="over"){
-		let name = track.config.type==="custom_draw_track"?feature.desc:feature.name;
-		if (!name){
-			name="interaction";
-		}
-		$("#feature-tooltip").css({top:(e.clientY-10)+"px",left:(e.clientX+3)+"px"}).text(name).show();
+				if (type==="over"){
+					//get some info about the feature
+					let s_s ="<b>Source Start:</b>"+feature.sourceStart+"<br>";
+					let s_e = "<b>Source End:</b>"+feature.sourceEnd+"<br>";
+					let t_s= "<b>Target Start:</b>"+feature.targetStart+"<br>";
+					let t_e= "<b>Target End:</b>"+feature.targetEnd+"<br>";
 
-		console.log(feature.name+" out");
-	}
-	else{
-		$("#feature-tooltip").hide();
-	}
-});
-  panel1.addListener("feature_clicked",function(track,feature,e,type){
-  	console.log(type);
-  });
+					//show the tooltip by the mouse
+					$("#feature-tooltip").css({top:(e.clientY-10)+"px",left:(e.clientX+3)+"px"})
+						.html(s_s+s_e+t_s+t_e)
+						.show();
+				}
+				else{
+					$("#feature-tooltip").hide();
+				}
+			});
 
-			//go to a genomic position
+
 			panel1.update("chr12",40572709 ,40652520); 
 		</script>
   	</body>
