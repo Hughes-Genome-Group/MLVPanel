@@ -32,3 +32,9 @@ and exposes certain modules by attaching them to the window object.
 
 ## Documentation
 Documentation can be found on the [wiki](https://github.com/Hughes-Genome-Group/MLVPanel/wiki) and examples along wih source code [here](https://martinsergeant.github.io/mlvpanel_examples.html).
+
+## Applications that use MLVPanel
+* [Multi Locus View](https://mlv.molbiol.ox.ac.uk)
+* [CaptureSee](https://capturesee.molbiol.ox.ac.uk)
+* [Lanceotron](https://lanceotron.molbiol.ox.ac.uk)
+
