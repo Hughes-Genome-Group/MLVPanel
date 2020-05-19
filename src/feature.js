@@ -140,14 +140,14 @@ class FeatureSource{
                             if (p_types[index][0]==="right"){
                                 let start=p_types[index][1][0];
                                 //remove any already retieved
-                                let n=0
-                                for (n=0;n<featureList.length;n++){
-                                    if (featureList[n].start> start){
+                                let i=0
+                                for (i=0;i<featureList.length;i++){
+                                    if (featureList[i].start> start){
                                         break;
                                     }
                                 }
-                                if (n!==0){
-                                    featureList.splice(0,n)
+                                if (i!==0){
+                                    featureList.splice(0,i)
                                 }
                             }
                             index++;
@@ -373,6 +373,7 @@ class FeatureFileReader{
         });
     }
 
+ 
 
     loadFeaturesWithIndex(chr, start, end) {
         var self = this;
@@ -420,7 +421,7 @@ class FeatureFileReader{
                             }
 
                             slicedData = startOffset ? inflated.slice(startOffset) : inflated;
-                            var f = self.parser.parseFeatures(slicedData);
+                            var f = self.parser.parseFeatures(slicedData,chr,start,end);
                             fulfill(f);
                         };
 
@@ -464,6 +465,7 @@ class FeatureFileReader{
         });
 
     }
+    
 
 
     getIndex() {
@@ -554,7 +556,7 @@ class FeatureFileReader{
         return new Promise(function (fulfill, reject) {
 
             if (self.index) {
-                self.loadFeaturesWithIndex(chr, start, end).then(packFeatures);
+                self.loadFeaturesWithIndex(chr, start, end).then(packFeatures).catch(reject);
             }
             else {
                 self.loadFeaturesNoIndex().then(packFeatures);
@@ -597,6 +599,13 @@ class FeatureParser{
             this.decode =function(tokens,ignore){
                 let feature={chr:tokens[0],start:parseInt(tokens[1]),end:parseInt(tokens[2])}
                 decode_func(tokens.slice(3),feature);
+                return feature;
+            } ;
+        }
+        else if (config.decode_function==="generic"){
+             this.decode =function(tokens,ignore){
+                let feature={chr:tokens[0],start:parseInt(tokens[1]),end:parseInt(tokens[2])}
+                feature.data=tokens.slice(3);
                 return feature;
             } ;
         }
@@ -693,7 +702,7 @@ class FeatureParser{
         return header;
     };
 
-    parseFeatures(data) {
+    parseFeatures(data,chr,start,end) {
 
         if (!data) return null;
 
@@ -727,12 +736,15 @@ class FeatureParser{
             }
 
             tokens = lines[i].split(delimiter);
-            if (tokens.length < 1) continue;
+            if (tokens.length < 1 || (format!=="wig" && tokens.length<3)) continue;
 
             feature = this.decode(tokens, wig);
 
 
             if (feature) {
+                if (feature.chr !==chr || feature.end<start || feature.start>end){
+                    continue;
+                }
                 if (allFeatures.length < maxFeatureCount) {
                     allFeatures.push(feature);
                 }
@@ -744,6 +756,9 @@ class FeatureParser{
                     }
                 }
                 cnt++;
+            }
+            else{
+                console.log(null);
             }
         }
 

@@ -8,7 +8,7 @@
 				}
 				super(config);
 				this.image=null;
-				this.legend_width=44;
+				this.legend_width=74;
 			}
 
 			static _convertSessionURL(url){
@@ -49,18 +49,14 @@
     					fulfill([]);
 					};
 					let url = self.config.url;
-					let args ="&position="+chr+":"+bpStart+"-"+bpEnd+"&pix="+(width)+"&hgt.labelWidth=5";
+					let args ="&position="+chr+":"+bpStart+"-"+bpEnd+"&pix="+(width)+"&hgt.labelWidth=10";
 					self.image.src =url+args;        
         		});		
 			}
 
-			drawScale(pixelHeight,ctx){
- 
-				//ctx.drawImage(this.image,0,0,this.legend_width,pixelHeight,0,0,this.legend_width,pixelHeight)
-			}
-
 			drawFeatures(options) {
           		let ctx = options.context;
+          		this.top=options.top;
           		ctx.globalAlpha=this.config.opacity;
            		ctx.drawImage(this.image,-this.legend_width,options.top);
            		ctx.globalAlpha=1.0;
@@ -68,8 +64,17 @@
            		return this.bottom;
 			}
 
+			drawScale(pixelHeight,ctx){
+				ctx.globalAlpha=0.7;
+				ctx.drawImage(this.image,0,0,this.legend_width,pixelHeight,0,this.top,this.legend_width,pixelHeight);
+				ctx.globalAlpha=1.0;
+			}
+
 		}
 
-		MLVTrack.custom_tracks['ucsc_track']=UCSCMLVTrack;
+		MLVTrack.track_types['ucsc_track']={
+			"class":UCSCMLVTrack,
+			name:"UCSC Session"
+		}
 
 export {UCSCMLVTrack};

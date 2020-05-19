@@ -75,11 +75,12 @@ class BAMTrack extends MLVTrack{
 
         // filter alignments
         this.filterOption = config.filterOption || {name: "mappingQuality", params: [30, undefined]};
+        this.display_alignments=true;
 
     }
 
     _setFeatureSource(){
-        this.feature_source=new BamSource(this.config);
+        this.feature_source=new BamSource(this.config,this);
         this.feature_source.setViewAsPairs(true);
 
 	   this.coverageTrack = new CoverageTrack(this.config, this);
@@ -148,7 +149,9 @@ class BAMTrack extends MLVTrack{
             alignmentRow,
             clickedObject,
             i, len, tmp;
-        
+        if (!packedAlignmentRows){
+            return null;
+        }
         packedAlignmentsIndex = Math.floor(((offset.y -this.top-this.coverageTrack.height) - (alignmentRowYInset)) / this.config.featureHeight);
 
         if (packedAlignmentsIndex < 0) {
@@ -578,7 +581,9 @@ class AlignmentTrack{
             packedAlignmentRows = alignmentContainer.packedAlignmentRows,
             sequence = alignmentContainer.sequence,
             base_text="normal "+(this.config.featureHeight-2)+"px Arial";
-
+        if (!packedAlignmentRows){
+            return;
+        }
         let top = options.top;
         if (sequence) {
             sequence = sequence.toUpperCase();
@@ -1008,4 +1013,10 @@ BAMTrack.filters = {
     };
 
 MLVTrack.custom_tracks["bam"]=BAMTrack;
-export {BAMTrack};
+
+MLVTrack.track_types["bam"]={
+	"class":BAMTrack,
+	name:"BAM"
+}
+
+export {BAMTrack,CoverageTrack,AlignmentTrack};

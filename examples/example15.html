@@ -68,7 +68,9 @@
 			}
 			
 			//register the track so the panel knows which object to create based on type
-			MLVTrack.custom_tracks['simple_track']=SimpleFeatureTrack;
+			MLVTrack.track_types['simple_track']={
+				"class":SimpleFeatureTrack
+			}
 			
 
 			//now create panel and add the track

@@ -56,7 +56,9 @@
 			}
 			
 			//register the track so the panel knows which object to create based on type
-			MLVTrack.custom_tracks['ucsc_track']=UCSCMLVTrack;
+			MLVTrack.track_types['ucsc_track']={
+				"class":UCSCMLVTrack
+			}
 			
 
 			//now create panel and add the track

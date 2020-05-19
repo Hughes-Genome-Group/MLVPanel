@@ -3,7 +3,7 @@
 
 	<body>
 		<!-- headers -->
-		<h2 style= "display:inline-block;margin-bottom:4px">Tiled Iamge Track</h2>
+		<h2 style= "display:inline-block;margin-bottom:4px">Tiled Image Track</h2>
 		<a href="https://github.com/Hughes-Genome-Group/MLVPanel/blob/master/examples/example9.html">View Source</a>
 		<div style="width:500px;margin-bottom:10px"> 
 			Simple track showing HiC which simply scales images
@@ -53,7 +53,7 @@
 
 				drawFeatures(options) {
 					//scale and draw the images
-					let bpEnd = options.bpStart + options.pixelWidth * options.bpPerPixel + 1;
+					let bpEnd = options.bpStart + options.pixelWidth * options.bpPerPixel+ 1;
 					let height=0;
 					for (let image of options.features){
 						let x1= (image.start-options.bpStart)/options.bpPerPixel;
@@ -93,7 +93,9 @@
 			}
 			
 			//register the track
-			MLVTrack.custom_tracks['tiled_image_track']=TiledImageTrack;
+			MLVTrack.track_types['tiled_image_track']={
+				"class":TiledImageTrack
+			}
 
 			//now create panel and add the track
 			let panel_config={

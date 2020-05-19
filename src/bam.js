@@ -27,7 +27,8 @@
 import {igvxhr} from "./igvxhr.js";
 import {BinaryParser} from "./bigwig.js";
 import {jszlib_inflate_buffer,arrayCopy} from "./vendor/inflate.js";
-import {FastaSequence} from "./feature.js"
+import {FastaSequence} from "./feature.js";
+import{Zlib} from "./vendor/zlib_and_gzip.js";
 
 
 const BAI_MAGIC = 21578050;
@@ -67,8 +68,8 @@ let loadBamIndex = function (indexURL, config, tabix) {
                 }
 
                 if (tabix) {
-                    var inflate = new Zlib.Zlib.Gunzip(new Uint8Array(arrayBuffer));
-                    arrayBuffer = inflate.decompress().buffer;
+                    var inflate = new Zlib.Gunzip(new Uint8Array(arrayBuffer));
+                    arrayBuffer = inflate.decompress().buffer;               
                 }
 
                 parser = new BinaryParser(new DataView(arrayBuffer));
@@ -160,16 +161,17 @@ let loadBamIndex = function (indexURL, config, tabix) {
                 } else {
                     throw new Error(indexURL + " is not a " + (tabix ? "tabix" : "bai") + " file");
                 }
-                fulfill(new BamIndex(indices, blockMin, sequenceIndexMap, tabix));
+                fulfill(new BamIndex(indices, blockMin, blockMax, sequenceIndexMap, tabix));
             }).catch(reject);
         })
     }
 
 
 class BamIndex{
-    constructor (indices, blockMin, sequenceIndexMap, tabix) {
+    constructor (indices, blockMin,blockMax, sequenceIndexMap, tabix) {
         this.firstAlignmentBlock = blockMin;
         this.indices = indices;
+        this.lastAlignmentBlock = blockMax;
         this.sequenceIndexMap = sequenceIndexMap;
         this.tabix = tabix;
     }
@@ -187,40 +189,33 @@ class BamIndex{
         var bam = this,
             ba = bam.indices[refId],
             overlappingBins,
-            leafChunks,
-            otherChunks,
+            chunks,
             nintv,
             lowest,
             minLin,
             maxLin,
-            lb,
-            prunedOtherChunks,
-            i,
-            chnk,
-            dif,
-            intChunks,
-            mergedChunks;
+            vp,
+            i
 
         if (!ba) {
             return [];
         }
         else {
-
-            overlappingBins = BamIndex.reg2bins(min, max);        // List of bin #s that might overlap min, max
-            leafChunks = [];
-            otherChunks = [];
+            overlappingBins = BamIndex.reg2bins(min, max);
+            chunks=[]        // List of bin #s that might overlap min, max
+           
 
 
             overlappingBins.forEach(function (bin) {
 
                 if (ba.binIndex[bin]) {
-                    var chunks = ba.binIndex[bin],
-                        nchnk = chunks.length;
+                    var binChunks = ba.binIndex[bin],
+                        nchnk = binChunks.length;
 
                     for (var c = 0; c < nchnk; ++c) {
-                        var cs = chunks[c][0];
-                        var ce = chunks[c][1];
-                        (bin < 4681 ? otherChunks : leafChunks).push({minv: cs, maxv: ce, bin: bin});
+                        var cs = binChunks[c][0];
+                        var ce = binChunks[c][1];
+                        chunks.push({minv: cs, maxv: ce, bin: bin});
                     }
 
                 }
@@ -231,60 +226,17 @@ class BamIndex{
             lowest = null;
             minLin = Math.min(min >> 14, nintv - 1), maxLin = Math.min(max >> 14, nintv - 1);
             for (i = minLin; i <= maxLin; ++i) {
-                lb = ba.linearIndex[i];
-                if (!lb) {
-                    continue;
-                }
-                if (!lowest || lb.block < lowest.block || lb.offset < lowest.offset) {
-                    lowest = lb;
+                vp = ba.linearIndex[i];
+                if (vp) {
+                
+                    if (!lowest || vp.isLessThan(lowest)) {
+                        lowest = vp;
+                    }
                 }
             }
-
             // Prune chunks that end before the lowest chunk
-            prunedOtherChunks = [];
-            if (lowest != null) {
-                for (i = 0; i < otherChunks.length; ++i) {
-                    chnk = otherChunks[i];
-                    if (chnk.maxv.block > lowest.block || (chnk.maxv.block == lowest.block && chnk.maxv.offset >= lowest.offset)) {
-                        prunedOtherChunks.push(chnk);
-                    }
-                }
-            }
-
-            intChunks = [];
-            for (i = 0; i < prunedOtherChunks.length; ++i) {
-                intChunks.push(prunedOtherChunks[i]);
-            }
-            for (i = 0; i < leafChunks.length; ++i) {
-                intChunks.push(leafChunks[i]);
-            }
-
-            intChunks.sort(function (c0, c1) {
-                dif = c0.minv.block - c1.minv.block;
-                if (dif != 0) {
-                    return dif;
-                } else {
-                    return c0.minv.offset - c1.minv.offset;
-                }
-            });
-
-            mergedChunks = [];
-            if (intChunks.length > 0) {
-                var cur = intChunks[0];
-                for (var i = 1; i < intChunks.length; ++i) {
-                    var nc = intChunks[i];
-                    if ((nc.minv.block - cur.maxv.block) < 65000) { // Merge blocks that are withing 65k of each other
-                        cur = {minv: cur.minv, maxv: nc.maxv};
-                    } else {
-                        mergedChunks.push(cur);
-                        cur = nc;
-                    }
-                }
-                mergedChunks.push(cur);
-            }
-            return mergedChunks;
+            return optimizeChunks(chunks, lowest); 
         }
-
     };
 
 
@@ -306,6 +258,44 @@ class BamIndex{
     }
 
 
+}
+
+function optimizeChunks(chunks, lowest) {
+
+    var mergedChunks = [],
+        lastChunk = null;
+
+    if (chunks.length === 0) return chunks;
+
+    chunks.sort(function (c0, c1) {
+        var dif = c0.minv.block - c1.minv.block;
+        if (dif != 0) {
+            return dif;
+        } else {
+            return c0.minv.offset - c1.minv.offset;
+        }
+    });
+
+    chunks.forEach(function (chunk) {
+
+        if (!lowest || chunk.maxv.isGreaterThan(lowest)) {
+            if (lastChunk === null) {
+                mergedChunks.push(chunk);
+                lastChunk = chunk;
+            } else {
+                if ((chunk.minv.block - lastChunk.maxv.block) < 65000) { // Merge chunks that are withing 65k of each other
+                    if (chunk.maxv.isGreaterThan(lastChunk.maxv)) {
+                        lastChunk.maxv = chunk.maxv;
+                    }
+                } else {
+                    mergedChunks.push(chunk);
+                    lastChunk = chunk;
+                }
+            }
+        }
+    });
+
+    return mergedChunks;
 }
 
 
@@ -397,9 +387,14 @@ class BGZFile{
      * @constructor
      */
  class BamReader{
-     constructor(config) {
+     constructor(config,parent) {
 
         this.config = config;
+        this.parent=parent;
+        this.ac_class=AlignmentContainer
+        if (parent.ac_class){
+            this.ac_class= parent_class;
+        }
 
         this.filter = config.filter || new BamFilter();
 
@@ -436,7 +431,7 @@ class BGZFile{
 
                 var chrId = chrToIndex[chr],
 
-                    alignmentContainer = new AlignmentContainer(chr, bpStart, bpEnd, self.samplingWindowSize, self.samplingDepth, self.pairsSupported);
+                    alignmentContainer = new self.ac_class(chr, bpStart, bpEnd, self.samplingWindowSize, self.samplingDepth, self.pairsSupported,self.parent);
                     
                 if (chrId === undefined) {
                     fulfill(alignmentContainer);
@@ -837,21 +832,27 @@ class BGZFile{
 
 
 class BamSource{
-    constructor(config) {
+    constructor(config,parent) {
 
         this.config = config;
         this.alignmentContainer = undefined;
         this.maxRows = config.maxRows || 1000;
-        this.sequence_source=new FastaSequence(config.seq_url);
+        if (config.seq_url){
+            this.sequence_source=new FastaSequence(config.seq_url);
+        }
+        this.parent=parent;
+
+        this.pack_alignments=true;
+       
 
         if (config.sourceType === "ga4gh") {
             this.bamReader = new igv.Ga4ghAlignmentReader(config);
         }
         else {
-            this.bamReader = new BamReader(config);
+            this.bamReader = new BamReader(config,parent);
         }
 
-       this.viewAsPairs = config.viewAsPairs;
+       this.viewAsPairs = true;
     };
 
     setViewAsPairs(bool) {
@@ -893,14 +894,16 @@ class BamSource{
                     if (!self.viewAsPairs) {
                         alignments = unpairAlignments([{alignments: alignments}]);
                     }
-
-                    alignmentContainer.packedAlignmentRows = packAlignmentRows(alignments, alignmentContainer.start, alignmentContainer.end, maxRows);
+                    if (self.parent.display_alignments){
+                         alignmentContainer.packedAlignmentRows = packAlignmentRows(alignments, alignmentContainer.start, alignmentContainer.end, maxRows);
+                    }
+                   
 
 
                     alignmentContainer.alignments = undefined;  // Don't need to hold onto these anymore
                     self.alignmentContainer = alignmentContainer;
-
-                   self.sequence_source.getSequence(alignmentContainer.chr, alignmentContainer.start, alignmentContainer.end).then(
+                    if (self.sequence_source){
+                         self.sequence_source.getSequence(alignmentContainer.chr, alignmentContainer.start, alignmentContainer.end).then(
                         function (sequence) {
 
 
@@ -913,6 +916,12 @@ class BamSource{
                                 fulfill(alignmentContainer);
                             }
                         }).catch(reject);
+
+                    }
+                    else{
+                        fulfill(alignmentContainer);
+                    }
+                  
 
                 }).catch(reject);
             }
@@ -1370,15 +1379,22 @@ class unbgzf{
 
 
 class AlignmentContainer{
-    constructor(chr, start, end, samplingWindowSize, samplingDepth, pairsSupported) {
-
+    constructor(chr, start, end, samplingWindowSize, samplingDepth, pairsSupported,parent) {
+        this.parent=parent;
         this.chr = chr;
         this.start = start;
         this.end = end;
         this.length = (end - start);
+        if (!this.parent.cm_class){
+            this.coverageMap= new CoverageMap(chr,start,end,parent)
+        }
+        else{
+            this.coverageMap= new this.parent.cm_class(chr,start,end,parent);
+        }
 
-        this.coverageMap = new CoverageMap(chr, start, end);
+       
         this.alignments = [];
+        this.raw_alignments=[];
         this.downsampledIntervals = [];
 
         this.samplingWindowSize = samplingWindowSize === undefined ? 100 : samplingWindowSize;
@@ -1401,8 +1417,19 @@ class AlignmentContainer{
     push(alignment) {
 
         if (this.filter(alignment) === false) return;
+        if (alignment.tagBA){
+            alignment.tagBA=decodeTags(alignment.tagBA);
+        }
+        if (this.parent.keep_raw_alignments){
+            this.raw_alignments.push(alignment);
+        }
 
-        this.coverageMap.incCounts(alignment);   // Count coverage before any downsampling
+        this.coverageMap.incCounts(alignment);
+        if (!this.parent.display_alignments){
+            return;
+        }
+
+         // Count coverage before any downsampling
 
         if (this.pairsSupported && this.downsampledReads.has(alignment.readName)) {
             return;   // Mate already downsampled -- pairs are treated as a single alignment for downsampling
@@ -1457,6 +1484,7 @@ class AlignmentContainer{
         return this.downsampledIntervals && this.downsampledIntervals.length > 0;
     }
 }
+
     function finishBucket() {
         this.alignments = this.alignments.concat(this.currentBucket.alignments);
         if (this.currentBucket.downsampledCount > 0) {
@@ -1467,6 +1495,12 @@ class AlignmentContainer{
         }
         this.paired = this.paired || this.currentBucket.paired;
     }
+
+
+   
+    
+
+
 
 class DownsampleBucket{
     constructor(start, end, alignmentContainer) {
@@ -1546,12 +1580,12 @@ class DownsampleBucket{
 
     // TODO -- refactor this to use an object, rather than an array,  if end-start is > some threshold
 class CoverageMap{
-    constructor(chr, start, end) {
+    constructor(chr, start, end,parent) {
 
         this.chr = chr;
         this.bpStart = start;
         this.length = (end - start);
-
+        this.parent=parent;
         this.coverage = new Array(this.length);
 
         this.maximum = 0;
@@ -1861,4 +1895,60 @@ class BamAlignmentRow {
     }
 }
 
-export {loadBamIndex,BamReader,BamSource,BamFilter,BamAlignment,PairedAlignment};
+let bgzBlockSize =function(data) {
+    const ba = new Uint8Array(data);
+    const bsize = (ba[17] << 8) | (ba[16]) + 1;
+    return bsize;
+}
+
+
+function decodeTags(ba) {
+
+            var p = 0,
+                len = ba.length,
+                tags = {};
+
+            while (p < len) {
+                var tag = String.fromCharCode(ba[p]) + String.fromCharCode(ba[p + 1]);
+                var type = String.fromCharCode(ba[p + 2]);
+                var value;
+
+                if (type == 'A') {
+                    value = String.fromCharCode(ba[p + 3]);
+                    p += 4;
+                } else if (type === 'i' || type === 'I') {
+                    value = readInt(ba, p + 3);
+                    p += 7;
+                } else if (type === 'c' || type === 'C') {
+                    value = ba[p + 3];
+                    p += 4;
+                } else if (type === 's' || type === 'S') {
+                    value = readShort(ba, p + 3);
+                    p += 5;
+                } else if (type === 'f') {
+                    // TODO 'FIXME need floats';
+                    value = readFloat(ba, p + 3);
+                    p += 7;
+                } else if (type === 'Z') {
+                    p += 3;
+                    value = '';
+                    for (; ;) {
+                        var cc = ba[p++];
+                        if (cc === 0) {
+                            break;
+                        } else {
+                            value += String.fromCharCode(cc);
+                        }
+                    }
+                } else {
+                    //'Unknown type ' + type;
+                    value = 'Error unknown type: ' + type;
+                    tags[tag] = value;
+                    break;
+                }
+                tags[tag] = value;
+            }
+            return tags;
+        }
+
+export {loadBamIndex,BamReader,BamSource,BamFilter,BamAlignment,AlignmentContainer,PairedAlignment,bgzBlockSize,CoverageMap,Coverage};

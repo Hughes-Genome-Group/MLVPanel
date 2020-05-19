@@ -41,6 +41,9 @@ class MLVImageGen {
 		this.track_order=[];
 		for (let t_config of tracks){
 			let track=MLVTrack.getTrack(t_config);
+			if (this.fixed_height_mode){
+				track.config.discrete=true;
+			}
 			this.tracks[track.config.track_id]=track;
 			this.track_order.push(track.config.track_id);
 		}
@@ -62,7 +65,18 @@ class MLVImageGen {
 
 	getTracksHeight(){
     		let h =3;
+		let groups={};
     		for (let t in this.tracks){
+		
+			let group = this.tracks[t].config.group;
+			if (group){
+				if (groups[group]){
+					continue;
+				}
+				else{
+					groups[group]=true;
+				}
+			}
 			h+=this.tracks[t].config.height+3;
     		}
     		return h;
@@ -77,10 +91,9 @@ class MLVImageGen {
 			let h_region=null;
 			if (info.highlight){
 				h_region={
-					chr:info.loc[0],
-					start:info.highlight[1],
-					end:info.highlight[2],
-					color:info.highloght[3]?info.highlight[3]:"blue"
+					start:info.highlight[0],
+					end:info.highlight[1],
+					color:info.highlight[2]?info.highlight[3]:"blue"
 				}
 			}
 			let stub = info.stub;
@@ -96,12 +109,12 @@ class MLVImageGen {
    
     
 	drawImage(chr,start,end,file,region){
-		console.log(file);
         	let bpPerPixel=(end-start)/this.config.width;
 	   	let self = this;
 		let height = this.fixed_height_mode?this.getTracksHeight():this.config.height;
 		this.canvas=Canvas.createCanvas(this.config.width,height,this.c_type);
 		this.ctx = this.canvas.getContext('2d');
+		
         	this.getAllFeatures(chr, start, end,{pixelWidth:this.config.width,bpPerPixel:bpPerPixel})
                 .then(function (all_features) {
                     if (all_features) {             
@@ -114,12 +127,18 @@ class MLVImageGen {
                         };
                         let top=3;
                         self.groups={};
-				
-				  self.ctx.clearRect(0, 0, self.config.width, self.config.height)
+				  self.calculateMaxScale(all_features);
+				  self.ctx.clearRect(0, 0, self.config.width, self.config.height);
+				  if (self.config.background_color && self.config.type==="png"){
+					self.ctx.fillStyle=self.config.background_color;
+					self.ctx.fillRect(0,0,self.config.width,height);
+				  }
+				  
                         for (let i in all_features){
                         	let track = self.tracks[self.track_order[i]];
                         	options.features=all_features[i];
-                        	let group = track.config.group
+                        	let group = track.config.group;
+					let clip_height = track.config.height;
                         	if (group){
                         		if (!self.groups[group]){
                         			self.groups[group]={top:top,height:track.config.height,label_offset:15}
@@ -130,6 +149,7 @@ class MLVImageGen {
 						}
                         		options.top=self.groups[group].top;
                         		options.height=self.groups[group].height;
+						clip_height=options.height;
 
                         	}
                         	else{
@@ -138,7 +158,7 @@ class MLVImageGen {
 					let disc = self.fixed_height_mode || track.config.discrete || group;
 					if (disc){
 						self.ctx.save();
-						self.ctx.rect(0,options.top,options.pixelWidth,track.config.height);
+						self.ctx.rect(0,options.top,options.pixelWidth,clip_height);
 						self.ctx.clip();
 						self.ctx.beginPath();
 
@@ -146,13 +166,24 @@ class MLVImageGen {
                            let offset=track.drawFeatures(options);
 					if (track.config.type !== "ruler"){
 						self.ctx.fillStyle = "black";
-						self.ctx.font="10px Arial";
+						let box_size=10;
+						if (self.config.label_font_size){
+							self.ctx.font=self.config.label_font_size+"px Arial";
+							box_size=self.config.label_font_size;
+						}
+						else{
+							self.ctx.font="10px Arial";
+						}
 						let t_w= self.ctx.measureText(track.config.short_label).width+5;
 						let l_offset=15;
 						if (group){
 							l_offset=self.groups[group].label_offset;
+							self.ctx.fillStyle=track.config.color;
+							self.ctx.fillRect(self.config.width-(box_size+2),options.top+l_offset-10,box_size,box_size);
+							t_w+=box_size+2;
+							self.ctx.fillStyle="black";
 						}
-						self.ctx.fillText(track.config.short_label,self.config.width-t_w,options.top+l_offset,);
+						self.ctx.fillText(track.config.short_label,self.config.width-t_w,options.top+l_offset);
 					}
 					if (disc){
 						self.ctx.restore();
@@ -206,6 +237,59 @@ class MLVImageGen {
                     self.drawImages();
                 });
      	}
+
+     autoScale(features,min,max){
+
+        		features.forEach(function (f) {
+            		min = Math.min(min, f.value);
+           			max = Math.max(max, f.value);
+        		});
+        		return {min: min, max: max};
+    		
+    }
+     calculateMaxScale(all_features){
+    	  let groups={};
+    	  for (var i in all_features){
+              let track = this.tracks[this.track_order[i]];
+              track.set_scale=null;
+              let group =track.config.group;
+             if (group && track.config.scale!=="fixed" && !(track.config.scale_link_to)){
+             		track.config.scale_group=group;
+             }       	
+             group = track.config.scale_group
+             if (group){
+             	let group_info= groups[group];
+             	if (!group_info){
+             		group_info={tracks:[track],features:[all_features[i]]}
+             		groups[group]=group_info
+
+             		
+             	}
+             	else{
+             		group_info.features.push(all_features[i]);
+             		group_info.tracks.push(track);
+             	}
+             
+             }
+    	  }
+    	  for (let name in groups){
+    	  	let g= groups[name];
+    	  	if (!g.ignore){
+    	  		let min=0;
+    	  		let max = -Number.MAX_VALUE;
+    	  		let scale=null;
+    	  		for (let f of g.features){
+    	  			 scale= this.autoScale(f,min,max)
+    	  			 min= scale.min;
+    	  			 max=scale.max;
+    	  		}
+    	  		for (let t of g.tracks){
+    	  			t.set_scale=scale;
+    	  		}
+    	  	}
+    	  } 
+    }
+
 
 	getAllFeatures(chr,bpStart,bpEnd,data) {
       	let promises = [];

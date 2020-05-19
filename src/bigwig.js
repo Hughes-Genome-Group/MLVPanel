@@ -24,6 +24,8 @@
  */
 
 import {igvxhr} from "./igvxhr.js";
+//import {pako} from "./vendor/pako_inflate.js";
+import {Zlib} from "./vendor/zlib_and_gzip.js";
 
 
 //***********js/bigwig/bufferedReader.js*****************
@@ -172,11 +174,11 @@ class BWSource{
                                         size: item.dataSize
                                     }, true).then(function (uint8Array) {
                                   
-                                       var inflate = new Zlib.Zlib.Inflate(uint8Array);
+                                       var inflate = new Zlib.Inflate(uint8Array);
                                        var plain= inflate.decompress();
-                                       //var inflate = new pako.Inflate();
-                                       //inflate.push(uint8Array, true);
-                                        //var plain = inflate.result;
+                               
+                                      
+                                       //var plain = pako.inflate(uint8Array);
                                         self.decodeFunction(new DataView(plain.buffer), chr, chrIdx, bpStart, bpEnd, features);
 
                                         fulfill(features);

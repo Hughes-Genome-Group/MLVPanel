@@ -25,7 +25,7 @@
 
 
 import {jszlib_inflate_buffer,arrayCopy} from "./vendor/inflate.js";
-
+import {Zlib} from "./vendor/zlib_and_gzip.js";
 
 let is_node=false;
 try{
@@ -34,9 +34,7 @@ try{
     is_node=true;
 }
 
-if (!Zlib.Zlib){
-	Zlib.Zlib=Zlib;
-}
+
 
 const NONE = 0;
 const GZIP = 1;
@@ -299,7 +297,7 @@ class igvxhr {
         var plain, inflate;
 
         if (compression === GZIP) {
-            inflate = new Zlib.Zlib.Gunzip(new Uint8Array(arraybuffer));
+            inflate = new Zlib.Gunzip(new Uint8Array(arraybuffer));
             plain = inflate.decompress();
         }
         else if (compression === BGZF) {

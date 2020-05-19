@@ -1329,10 +1329,9 @@ button.ui-button::-moz-focus-inner {
 .ui-dialog .ui-dialog-titlebar {
 	/* padding: .4em 1em; */
 	position: relative;
-	padding: 5px 15px;
 	border: 0 0 0 1px solid;
 	border-color: white;
-	/* padding: 2px 15px; */
+	padding: 2px 15px; 
 	font-size: 16px;
 	text-decoration: none;
 	-webkit-border-bottom-right-radius: 0; /* Safari 4 */
@@ -1350,9 +1349,11 @@ button.ui-button::-moz-focus-inner {
 	font-weight: bold;
 	margin-top: 1px;
 	/*margin-bottom: 5px;*/
-	padding: 2px 5px;
+	padding: 3px 5px;
 	text-overflow: ellipsis;
+	white-space:nowrap;
 	overflow: hidden;
+	width:100%
 }
 
 .ui-dialog-titlebar .ui-tab{

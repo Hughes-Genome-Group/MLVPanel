@@ -2,22 +2,17 @@
 
     	class TiledImageTrack extends MLVTrack{
 			constructor(config){
-				config.images={
-                         "chr16":[
-						[0,4000000,"chr16_0_4000000.png"],
-						[4000001,8000000,"chr16_4000000_8000000.png"],
-						[8000001,12000000,"chr16_8000000_12000000b.png"],
-
-						
-					]
-
-				}
 				super(config);
 			}
 
 
 			getFeatures(chr,bpStart,bpEnd,force,data){
 				let locations = this.config.images[chr];
+				if (!locations){
+					return new Promise(function(fulfill,reject){
+						fulfill([]);
+					})
+				}
 				let promises= [];
 				for (let loc of locations){
 					if (loc[0]>bpEnd){
@@ -55,8 +50,8 @@
 					if (image.end<bpEnd){
 						x2  = options.pixelWidth-((bpEnd-image.end)/options.bpPerPixel);
 					}
-				
-					options.context.drawImage(image,x_clip,0,x_clip2-x_clip,image.height,x1,options.top,x2-x1,image.height);
+					let factor=this.config.y_scale_factor?options.bpPerPixel/this.config.y_scale_factor:1;
+					options.context.drawImage(image,x_clip,0,x_clip2-x_clip,image.height,x1,options.top,x2-x1,image.height/factor);
 					height=image.height;
                          
 					
@@ -82,7 +77,11 @@
 		}
 		
 
-		MLVTrack.custom_tracks['tiled_image_track']=TiledImageTrack;
+		MLVTrack.track_types['tiled_image_track']={
+			"class":TiledImageTrack,
+			name:"Tiled Image Track"
+
+		}
 
 export {TiledImageTrack};
 

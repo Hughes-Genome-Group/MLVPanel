@@ -138,6 +138,9 @@ class MLVTrack{
 				config.format=info.format;
 			}
 		}
+		if (config.type==="bed" || config.type==="bigbed"){
+			config.format="feature";
+		}
 		if (!config.short_label && config.url){
 			config.short_label=MLVTrack.calculateLabel(config.url);
 		}
@@ -152,16 +155,17 @@ class MLVTrack{
         	config.squishedCallHeight = config.squishedCallHeight || 30;
         	config.expandedCallHeight = config.expandedCallHeight || 15;
         	config.featureHeight=config.featureHeight || 12;
+		
 		}
 
-		if (config.format==="wig"){
+		if (config.format==="wig" || config.type==="bigwig"){
 			if (!config.scale){
 				config.scale="dynamic";
 			}
 			if (!config.min_y){
 				config.min_y=0;
 			}
-			if (!config.maxy_y){
+			if (!config.max_y){
 				config.max_y=100;
 			}
 			if (!config.height){
@@ -172,6 +176,9 @@ class MLVTrack{
 			if (!config.featureHeight){
 				config.featureHeight=12;
 			}
+		}
+		if (!config.height){
+			config.height=100;
 		}
 
 		if (!config.color){
@@ -185,50 +192,27 @@ class MLVTrack{
 		if (!config.opacity){
 			config.opacity=1.0;
 		}
+           
 		return config;
 	}
 
 
 	
 	static getTrack(config){
-
 		config=MLVTrack.parseConfig(config);
-		
-		if (config.type==="bigwig"){
-			return new MLVWigTrack(config);
+		let cl= MLVTrack.track_types[config.type];
+		if (!cl){
+			throw new Error("Track type "+ config.type+" not recognised")
 		}
-		else if (config.type==="bed"){
-			return new MLVBedTrack(config);
-		}
-		else if (config.type==="ucsc"){
-			return new UCSCTrack(config);
-		}
-		else if (config.type==="line"){
-			return new LineTrack(config);
-		}
-		else if (config.type==="bigbed"){
-			return new MLVBigBedTrack(config);
-		}
-		else if (config.type==="ruler"){
-			return new RulerTrack(config);
-		}
-		else if (config.type==="fasta"){
-			return new SequenceTrack(config);
-		}
-		
-		else{
-			
-			let class_type = MLVTrack.custom_tracks[config.type];
-			if (class_type){
-				return new class_type(config);
-			}
-		}
+		return new cl["class"](config);
 
 	}
 		
 }
 
 MLVTrack.custom_tracks={};
+
+MLVTrack.track_types={}
 
 
 
@@ -404,6 +388,12 @@ class RulerTrack extends MLVTrack{
 
 RulerTrack.count=0;
 
+MLVTrack.track_types["ruler"]={
+	"class":RulerTrack,
+	name:"Ruler"
+
+}
+
 class TickSpacing{
 	constructor(majorTick, majorUnit, unitMultiplier) {
         this.majorTick = majorTick;
@@ -554,6 +544,11 @@ class MLVBedTrack extends MLVTrack{
             boxX = Math.max(featureX, windowX);
             boxX1 = Math.min(featureX1, windowX1);
         }
+
+        let text= feature.name;
+        if (this.label_function){
+        	text=this.label_function(feature);
+        }
        
 
         //if (igv.browser.selection && "genes" === this.config.type && feature.name !== undefined) {
@@ -561,10 +556,10 @@ class MLVBedTrack extends MLVTrack{
             //geneColor = igv.browser.selection.colorForGene(feature.name);
       //  }
 
-        textFitsInBox = (boxX1 - boxX) > ctx.measureText(feature.name).width;
+        textFitsInBox = (boxX1 - boxX) > ctx.measureText(text).width;
         //geneColor="black";
 
-        if ((textFitsInBox || geneColor) && info.displayMode != "SQUISHED" && feature.name !== undefined) {
+        if ((textFitsInBox || geneColor) && info.displayMode != "SQUISHED" && text) {
             geneFontStyle = {
                 font: '10px PT Sans',
                 textAlign: 'center',
@@ -580,7 +575,7 @@ class MLVBedTrack extends MLVTrack{
             labelX = boxX + ((boxX1 - boxX) / 2);
             labelY = getFeatureLabelY(featureY, transform);
 
-            Graphics.fillText(ctx, feature.name, labelX, labelY, geneFontStyle, transform);
+            Graphics.fillText(ctx, text, labelX, labelY, geneFontStyle, transform);
         }
         function getFeatureLabelY(featureY, transform) {
         	return transform ? featureY + info.featureHeight+14 : featureY + info.featureHeight+7;
@@ -742,6 +737,11 @@ class MLVBedTrack extends MLVTrack{
 
 }
 
+MLVTrack.track_types["bed"]={
+	"class":MLVBedTrack,
+	name:"bed(tabix)"
+}
+
 
 class MLVBigBedTrack extends MLVBedTrack{
 	constructor(config){
@@ -754,12 +754,19 @@ class MLVBigBedTrack extends MLVBedTrack{
 
 }
 
+MLVTrack.track_types["bigbed"]={
+	"class":MLVBigBedTrack,
+	"name":"BigBed"
+	
+}
+
 
 
 
 
 class MLVWigTrack extends MLVTrack{
 	constructor(config){
+		config.format="wig";
 		super(config);
 		this._setFeatureSource();
 	}
@@ -770,14 +777,12 @@ class MLVWigTrack extends MLVTrack{
 
 
 	drawScale(pixel_height,ctx){
-		if (this.config.scale_link_to){
+		if (this.config.scale_link_to && this.config.group){
 			return;
 		}
 		let bot= pixel_height;
 		let top = 0;
-		if (this.scale_link_to){
-			return;
-		}
+
 
 		if (this.config.discrete){
 			top=this.top;
@@ -795,11 +800,18 @@ class MLVWigTrack extends MLVTrack{
 		ctx.font="12px Arial";
 		ctx.stroke();
 		ctx.textBaseline="top";
+		ctx.fillStyle="black";
 		ctx.fillText(this.max_y.toFixed(2),20,top);
 		ctx.textBaseline="alphabetic";
 		ctx.fillText(this.min_y,20,bot);
 
 	}
+
+
+
+	
+	
+	
 	
 	drawFeatures(options) {
 		let self = this,
@@ -840,6 +852,10 @@ class MLVWigTrack extends MLVTrack{
 	                self.min_y=self.scale_link_to.min_y;
 	            }
 	       }
+	       else if(self.set_scale){
+	       		self.min_y=self.set_scale.min;
+	       		self.max_y=self.set_scale.max;
+	       }
 	       else if ( (self.max_y === undefined && self.config.scale==="automatic") || self.config.scale==="dynamic"){
 	                var s = autoscale(features);
 	                self.min_y = s.min;
@@ -862,14 +878,21 @@ class MLVWigTrack extends MLVTrack{
 	            let prev_x=0;
 	            let prev_y=0;
 	            ctx.globalAlpha   = this.config.opacity?this.config.opacity:1;
+	         
 	            if (self.is_line){  
 	                let y = (1.0 - self.config.value / featureValueRange)*pixelHeight;
 	                Graphics.strokeLine(ctx,0,y,pixelWidth,y,{"strokeStyle":self.config.color,"lineWidth":self.config.width?self.config.width:1});
 	             }
+	         
 	            else{
 	            	features.forEach(renderFeature);
 	            }
+	       
 	            ctx.globalAlpha=1
+	             if (self.config.threshold){
+	             	    let y = y_offset+(1.0 - self.config.threshold/ featureValueRange)*pixelHeight;
+	             	    Graphics.strokeLine(ctx,0,y,pixelWidth,y,{"strokeStyle":"black","lineWidth":1});
+	                 }
 	        }
 	         
 	        function renderFeature(feature, index, featureList) {
@@ -885,10 +908,18 @@ class MLVWigTrack extends MLVTrack{
 
 	            if (feature.end < bpStart) return;
 	            if (feature.start > bpEnd) return;
-
+	              if (feature.end===feature.start){
+	            	feature.start-=1;
+	            }
+	          
+              
 	            x = Math.floor((feature.start - bpStart) / bpPerPixel);
+	            
 	            rectEnd = Math.floor((feature.end - bpStart) / bpPerPixel);
 	            width = Math.max(0, rectEnd - x);
+	          
+
+	          
 
 	            //height = ((feature.value - featureValueMinimum) / featureValueRange) * pixelHeight;
 	            //rectBaseline = pixelHeight - height;
@@ -929,38 +960,51 @@ class MLVWigTrack extends MLVTrack{
 	                self.prev_coords.y=y;
 	            }
 	            else{
-	                Graphics.fillRect(ctx, x, y, width, height, {fillStyle: color});
+	            	 Graphics.fillRect(ctx, x, y, width, height, {fillStyle: color});
 	            }
+	           
+	            	
+
+	            	
+	          
+	        
+	            
 	        }
-	         function autoscale(features) {
-        var min = 0,
-            max = -Number.MAX_VALUE;
+	        function autoscale(features) {
+        		var min = 0,
+            	max = -Number.MAX_VALUE;
+        		features.forEach(function (f) {
+            		min = Math.min(min, f.value);
+           			max = Math.max(max, f.value);
+        		});
+        		return {min: min, max: max};
+    		}
 
-        features.forEach(function (f) {
-            min = Math.min(min, f.value);
-            max = Math.max(max, f.value);
-        });
-
-        return {min: min, max: max};
-
-    }
-
-    function signsDiffer(a, b) {
-        return (a > 0 && b < 0 || a < 0 && b > 0);
-    }
-    this.top=y_offset;
-    this.bottom=y_offset+pixelHeight;
-    if (this.config.discrete){
-    	return this.bottom;
-    }
-    else{
-    	this.top=0;
-    	this.bottom=0;
-    }
+    		function signsDiffer(a, b) {
+        		return (a > 0 && b < 0 || a < 0 && b > 0);
+    		}
+    		this.top=y_offset;
+    		this.bottom=y_offset+pixelHeight;
+    		if (this.config.discrete){
+    			return this.bottom;
+    		}
+    		else{
+    			this.top=0;
+    			this.bottom=0;
+   			}
 
 	    
+	}
 }
+
+
+
+MLVTrack.track_types["bigwig"]={
+	"class":MLVWigTrack,
+	name:"BigWig"
 }
+
+
  class LineTrack extends MLVWigTrack{
 	 constructor(config){
 		 super(config);
@@ -975,6 +1019,11 @@ class MLVWigTrack extends MLVTrack{
 	 
 	 
  }
+
+MLVTrack.track_types["line"]={
+	"class":LineTrack,
+	name:"Line Track"
+}
 
 
 
@@ -1067,6 +1116,13 @@ class SequenceTrack extends MLVTrack{
     }
 
 }
+
+
+MLVTrack.track_types["fasta"]={
+	"class":SequenceTrack,
+	name:"Fasta"
+}
+
 
 
 //*******js/ifv-canvas.js***********************

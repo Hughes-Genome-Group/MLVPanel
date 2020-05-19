@@ -37,7 +37,9 @@
 				}
 			}
 			//register the new track type
-			MLVTrack.custom_tracks['custom_draw_track']=CustomDrawTrack;
+			MLVTrack.track_types['custom_draw_track']={
+				"class":CustomDrawTrack
+			}
 
     			//allow user interaction
 			var panel_config={

@@ -28,6 +28,22 @@ class MLVTrackDialog{
         this.panel.setTrackAttribute(this.config.track_id,"min_y",this.config.min_y);
         this.panel.update();
     }
+
+    _reOrderTrack(other_track){
+    	let this_i = this.panel.track_order.indexOf(this.config.track_id);
+    	let other_i =  this.panel.track_order.indexOf(other_track);
+    	if (this_i < other_i){
+    		let temp = this.panel.track_order[this_i];
+    		this.panel.track_order[this_i]=this.panel.track_order[other_i];
+    		this.panel.track_order[other_i]=temp;
+    		if (this.panel.legend){
+    			this.panel.legend.swapOrder(this.config.track_id,other_track)
+    		}
+
+    	}
+    }
+
+
         
     init(){
         let self=this;
@@ -59,8 +75,13 @@ class MLVTrackDialog{
             $("input[name='"+scale_name+"']").click(function(e){
                 let scale=$("input[name='"+scale_name+"']:checked").val();
                 self.config.scale=scale;
+                if (scale==="fixed"){
+                	self.config.scale_group="";
+                	self.sg_input.val("");
+                }
                 if (self.panel){
                     self.panel.setTrackAttribute(self.config.track_id,"scale",scale);
+                    self.panel.setTrackAttribute(self.config.track_id,"scale_group",self.config.scale_group);
                     delete self.panel.tracks[self.config.track_id].max_y;
                     self.panel.update();
                 }
@@ -111,12 +132,66 @@ class MLVTrackDialog{
 
                 
             }).appendTo(scale_div).width(40).css({"float":"right"}).val(self.config.max_y);
-            if (self.config.scale_link_to){
-            	let label = this.panel.tracks[self.config.scale_link_to].config.short_label;
-            	scale_div.find("label").text("Scale(linked to "+label+")");
-            	scale_div.find("input").attr("disabled",true);
-            	self.scale_slider.slider("disable");
+
+			scale_div.append("<br>Linked To:");
+			let track  = this.panel.tracks[this.config.track_id];
+       
+            
+            this.link_opt = $("<select>")
+            	.css("max-width","140px")
+            	.change(function(e){
+            		let val= $(this).val();
+            		let dis = true;
+            		if (!val){
+						dis=false;
+            		}
+            		self.max_y_input.attr("disabled",dis);
+            		self.min_y_input.attr("disabled",dis);
+            		self.scale_slider.slider("option","disabled",dis);
+					self._reOrderTrack(val);
+					self.config.scale_link_to=val;
+            		self.panel.setTrackAttribute(self.config.track_id,"scale_link_to",val);
+            
+            		self.panel.update();
+            })
+			scale_div.append(this.link_opt);
+			this.link_opt.append($("<option>").val(null).text("none"));
+            for (let tn of this.panel.track_order){
+            	let c= this.panel.tracks[tn].config;
+
+            	if (c.format !== "wig" || c.track_id === this.config.track_id  || c.scale_link_to ){
+            		continue;
+            	}
+				this.link_opt.append($("<option>").val(c.track_id).text(c.short_label));
             }
+
+            this.link_opt.val(this.config.scale_link_to);
+
+            if (this.config.scale_link_to){
+            	this.max_y_input.attr("disabled",true);
+            	this.min_y_input.attr("disabled",true);
+            	this.scale_slider.slider("option","disabled",true);
+            }
+    
+
+               scale_div.append("<br>").append("<span>Scale Group:</span>");
+            this.sg_input= $("<input>").on("blur keypress",function(e){
+                 if (e.type==="keypress" && !(e.which===13)){
+                    return;
+                }
+                self.config.scale_group=$(this).val();
+                self.panel.setTrackAttribute(self.config.track_id,"scale_group",self.config.scale_group);
+                self.panel.update();
+
+            }).width(120);
+            this.sg_input.val(this.config.scale_group).appendTo(scale_div);
+         
+     		this.div.append("<hr>");
+           
+
+  
+
+       
 
 
             this.div.append("<hr>");
@@ -270,7 +345,11 @@ class MLVTrackDialog{
 }
 
 class AddTrackDialog{
-	constructor(callback){
+	constructor(callback,config){
+		if (!config){
+			config={};
+		}
+		this.config=config;
         this.div = $("<div>").attr("class","add-track-dialog");
         this.id=MLVTrackDialog.id++;
         this.callback=callback
@@ -291,16 +370,13 @@ class AddTrackDialog{
         	width:250
        
         }).dialogFix();
-        this.track_types=["bigwig","bed","ucsc_track","line","bigbed","fasta"]; 
-
+		
         this.init();
       
 
 	}
 
-	getConfig(){
-		
-		let name= "track-add-radio-"+this.id
+	getConfig(){		
 		let type = $("input[name='"+this.type_radio+"']:checked").val();
 		let config= {url:this.url_input.val(),type:type,short_label:this.name_input.val()};
 		this.callback(config);
@@ -324,7 +400,10 @@ class AddTrackDialog{
 		this.div.append($("<label>Type</label>"));
 		let radio_div=$("<div>").appendTo(this.div);
 		this.type_radio= 'track-add-radio-'+this.id
-		for (let type of this.track_types){
+		for (let type in MLVTrack.track_types){
+			if (this.config.allowed_track_types && this.config.allowed_track_types.indexOf(type)===-1){
+				continue;
+			}
 			this.addRadioButton(radio_div,type);
 		}
 
@@ -349,7 +428,7 @@ class AddTrackDialog{
 	addRadioButton(div, type){
 		let sp =$("<span>").css({"display":"inline-block","margin-right":"3px"});
 		sp.append($("<input>").attr({type:"radio",value:type,name:this.type_radio}));
-		sp.append($("<span>").text(type));
+		sp.append($("<span>").text(MLVTrack.track_types[type].name));
 		div.append(sp);
 
 	}

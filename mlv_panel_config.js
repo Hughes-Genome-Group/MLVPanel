@@ -11,7 +11,6 @@ module.exports = {
 
   	plugins: [
   		new webpack.ProvidePlugin({
-			Zlib:path.resolve(__dirname,"src/vendor/zlib_and_gzip.min.js"),
 			//The following can be removed if you already have imported jquery
 			$: "jquery",
 			jQuery: "jquery"
@@ -23,7 +22,6 @@ module.exports = {
 			//This can be removed if you don't want to support older browsers
       		{
         			test : /\.js/,
-	        		exclude: path.resolve(__dirname,'src/vendor/zlib_and_gzip.min.js'),
         			loader : 'babel-loader',
  				query: {
                     		presets: ['es2015']

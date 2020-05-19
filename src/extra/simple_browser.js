@@ -58,11 +58,12 @@ class SinglePanelBrowser extends BaseBrowser{
 				allow_user_zoom:true,
 				allow_user_drag:true,
 				fixed_height_mode:true,
+				allow_user_range_selection:true
 			}
 
 		)
 		if (config.add_controls){
-			this.addControls();
+			this.addControls({allowed_track_types:config.allowed_track_types});
 		}
 
 		this.div.append(this.panel.getDiv());
@@ -78,6 +79,10 @@ class SinglePanelBrowser extends BaseBrowser{
 		}
 		this.panel.addLegend();
 		this.setSize();
+
+		this.panel.addListener("range_selected",function(chr,start,end){
+			self.panel.update(chr,start,end);
+		})
 	
 
 
@@ -103,7 +108,7 @@ class SinglePanelBrowser extends BaseBrowser{
 		this.panel.update(this.panel.chr,st,en);
 	}
 
-	addTrackFromBrowser(config,update){
+	addTrackFromBrowser(config,update,pos){
 		config.url = this.replaceWithProxy(config.url);
 		config.allow_user_remove=true;
 		this.panel.addTrack(config);
@@ -134,7 +139,21 @@ class SinglePanelBrowser extends BaseBrowser{
 		for (let conf of state.state){
 			this.panel.addTrack(conf);
 		}
-		this.panel.update(state.position.chr,state.position.start,state.position.end);
+           if (state.position){
+		     this.panel.update(state.position.chr,state.position.start,state.position.end);
+		}
+	}
+
+	setHighlightedRegion(chr,start,end){
+		this.panel.removeHighlightedRegion("region_1");
+		if (!chr){
+			return;
+		}
+		this.panel.setHighlightedRegion(
+			{chr:chr,start:start,end:end},
+			"region_1",
+			"blue"
+		);
 	}
 
 
@@ -161,7 +180,7 @@ class SimpleBrowser extends BaseBrowser{
 		super(parent_div,config);
 	
 		if (config.add_controls){
-			this.addControls({limit_chromosome:config.limit_chromosome});
+			this.addControls({limit_chromosome:config.limit_chromosome,allowed_track_types:config.allowed_track_types});
 		}
 		
 		
@@ -498,10 +517,10 @@ class BrowserControls{
 			.attr("class","btn btn-sm btn-secondary")
 			.css("margin-left","3px")
 			.click(function(e){
-				new AddTrackDialog(function(config){
-					self.browser.addTrackFromBrowser(config,true);
-				})
-			})
+					new AddTrackDialog(function(config){
+						self.browser.addTrackFromBrowser(config,true);
+					},{allowed_track_types:config.allowed_track_types})
+			})		 
 			.appendTo(this.container);
 		this.browser.addListener("view_changed",function(location,start,end){
 			if (self.limit_chromosome){

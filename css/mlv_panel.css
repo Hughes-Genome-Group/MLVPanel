@@ -70,3 +70,8 @@
     margin-right: 2px;
 
 }
+
+.browser-menu-panel{
+	overflow:hidden;
+	white-space:nowrap;
+}

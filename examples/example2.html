@@ -9,9 +9,7 @@
   	<body>
   		<!-- the div to hold the track -->
 		<div id="the-track" style="height:200px;width:500px;border:1px solid black;"> </div>
-		<!--legacy script hard to import with es6 -->
-     	<script src="../src/vendor/zlib_and_gzip.min.js"></script>
-     	<script type = "module">
+     		<script type = "module">
 			import '../src/vendor/jquery.min.js';
 			import '../src/vendor/jquery-ui.min.js';
 			import '../src/vendor/jquery-ui-fixes.js';
@@ -29,13 +27,14 @@
 			//minimal config, only track urls given
 			var panel1 = new MLVPanel(
 				[
-					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw"},
-					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/refGene.hg19.bed.gz"}
+					//{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/peaks.bw"},
+					//{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/examples/refGene.hg19.bed.gz"}
+					{url:"https://lanceotron.molbiol.ox.ac.uk/tracks/projects/814/anno_814.bed.gz",decode_function:"generic",displayMode:"EXPANDED"}
 				],
 				panel_config
 			);
 			//go to a genomic position
-			panel1.update("chr16",100000,200000);
+			panel1.update("chr1",100000,200000);
 		</script>
   	</body>
 </html>

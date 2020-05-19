@@ -14,11 +14,9 @@ class PanelLegend{
         })
 
         if (config.draggable || config.draggable=== undefined){
-
           this.div.draggable({
             containment:"parent"
          })
-
         }
 
          if (config.transparent == false || config.transparent===undefined){
@@ -43,6 +41,29 @@ class PanelLegend{
         panel.trackDiv.append(this.div);
         
     }
+
+    swapOrder(id1,id2){
+        let el1=null;
+        let el2=null;
+           this.li.children().each(function(i,el){
+            let e = $(el);
+            let track =  e.data("track");
+           
+            if (track.track_id===id2){
+                el2=e;        
+            }
+            else if  (track.track_id===id1){
+                el1=e
+            }
+       
+
+        });
+
+        el1.detach();
+        el1.insertAfter(el2);
+
+    }
+
     _reOrder(item){
         let group = item.data("track").group;
         let item_id=item.data("track").track_id;
@@ -92,7 +113,7 @@ class PanelLegend{
         this.li.width(null);                  
     }
     
-    addTrack(track){
+    addTrack(track,index){
         let self = this;
         let item = $("<li>").data({track:track,panel:this.panel})
         .click(function(e){
@@ -126,7 +147,16 @@ class PanelLegend{
             .css("float","right")
             .appendTo(t_sp);
         }
-        this.li.append(item); 
+        if (index===0){
+            this.li.prepend(item);
+        }
+        else if (index){
+            let pos_el=this.li.children()[index-1]
+            item.insertAfter($(pos_el));
+        }
+        else{
+            this.li.append(item);
+        }
         this.track_index[track.track_id]=item;
         this.updateTrack(track.track_id);   
     }

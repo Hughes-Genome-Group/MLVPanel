@@ -63,7 +63,10 @@
 
 			}
 			//register the new track type
-			MLVTrack.custom_tracks['custom_gene']=CustomGeneTrack;
+			MLVTrack.track_types['custom_gene']={
+					"class":CustomGeneTrack,
+					name:"Database Source"
+                }
 
     		//allow user interaction
 			var panel_config={
@@ -78,7 +81,7 @@
 				[
 					{
 						//the base url of the api (chr,start and end will be added on demand)
-						url:"http://martindev1.molbiol.ox.ac.uk/meths/hg19/get_genes",
+						url:"https://lanceotron.molbiol.ox.ac.uk/meths/hg19/get_genes",
     					short_label:"Ref Genes",
     					//specify our new type
     					type:"custom_gene",

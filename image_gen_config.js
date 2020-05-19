@@ -10,11 +10,11 @@ module.exports = {
   	},
 	plugins: [
   		new webpack.ProvidePlugin({
-			Zlib:path.resolve(__dirname,"src/vendor/zlib_and_gzip.min.js"),
-      		"$.extend":"extend",
+			"$.extend":"extend",
        		"$.ajax":"najax",
      			 XMLHttpRequest:"xhr2",
-       		$:"jquery"
+       		$:"jquery",
+			Image:["Canvas","Image"]
   		})
 	],
     	target:'node',
